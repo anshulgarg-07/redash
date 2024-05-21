@@ -28,9 +28,9 @@ FROM python:3.7-slim-buster
 EXPOSE 5000
 
 # Controls whether to install extra dependencies needed for all data sources.
-ARG skip_ds_deps
+ARG skip_ds_deps=1
 # Controls whether to install dev dependencies.
-ARG skip_dev_deps
+ARG skip_dev_deps=""
 
 RUN useradd --create-home redash
 
@@ -58,13 +58,9 @@ RUN apt-get update && \
     libsasl2-dev \
     unzip \
     libsasl2-modules-gssapi-mit && \
-  # MSSQL ODBC Driver:  
-  curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-  curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
-  apt-get update && \
-  ACCEPT_EULA=Y apt-get install -y msodbcsql17 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+
 
 ARG databricks_odbc_driver_url=https://databricks.com/wp-content/uploads/2.6.10.1010-2/SimbaSparkODBC-2.6.10.1010-2-Debian-64bit.zip
 RUN wget --quiet $databricks_odbc_driver_url -O /tmp/simba_odbc.zip \
@@ -79,7 +75,7 @@ WORKDIR /app
 
 # Disalbe PIP Cache and Version Check
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PIP_NO_CACHE_DIR=1
+ENV PIP_NO_CACHE_DIR=off
 
 # rollback pip version to avoid legacy resolver problem
 RUN pip install pip==20.2.4;

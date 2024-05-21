@@ -5,7 +5,7 @@ x-redash-service: &redash-service
   build:
     context: .
     args:
-      skip_frontend_build: "true"
+      skip_frontend_build: ""
   volumes:
     - .:/app
   env_file:
@@ -13,7 +13,7 @@ x-redash-service: &redash-service
 x-redash-environment: &redash-environment
   REDASH_LOG_LEVEL: "INFO"
   REDASH_REDIS_URL: "redis://redis:6379/0"
-  REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
+  REDASH_DATABASE_URL: "postgresql://redash:redash@postgres:5432/redash"
   REDASH_RATELIMIT_ENABLED: "false"
   REDASH_MAIL_DEFAULT_SENDER: "redash@example.com"
   REDASH_MAIL_SERVER: "email"
@@ -27,7 +27,7 @@ services:
       - postgres
       - redis
     ports:
-      - "5000:5000"
+      - "5001:5000"
       - "5678:5678"
     environment:
       <<: *redash-environment
@@ -61,6 +61,9 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
+      POSTGRES_USER: redash
+      POSTGRES_PASSWORD: redash
+      POSTGRES_DB: redash
   email:
     image: djfarrelly/maildev
     ports:
