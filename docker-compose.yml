@@ -18,17 +18,19 @@ x-redash-environment: &redash-environment
   REDASH_MAIL_DEFAULT_SENDER: "redash@example.com"
   REDASH_MAIL_SERVER: "email"
   REDASH_ENFORCE_CSRF: "true"
+  REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT: "true"
   # Set secret keys in the .env file
 services:
   server:
     <<: *redash-service
-    command: dev_server
+    command: server
     depends_on:
       - postgres
       - redis
     ports:
       - "5001:5000"
       - "5678:5678"
+      - "8081:8080"
     environment:
       <<: *redash-environment
       PYTHONUNBUFFERED: 0
@@ -41,12 +43,14 @@ services:
       <<: *redash-environment
   worker:
     <<: *redash-service
-    command: dev_worker
+    command: worker
     depends_on:
       - server
     environment:
       <<: *redash-environment
       PYTHONUNBUFFERED: 0
+      QUEUES: "queries,scheduled_queries,celery,schemas"
+      WORKERS_COUNT: 2
   redis:
     image: redis:3-alpine
     restart: unless-stopped
@@ -56,7 +60,7 @@ services:
     # improvement on my personal machine). We should consider moving this into a dedicated Docker Compose configuration for
     # tests.
     ports:
-      - "15432:5432"
+      - "5432:5432"
     command: "postgres -c fsync=off -c full_page_writes=off -c synchronous_commit=OFF"
     restart: unless-stopped
     environment:
@@ -69,3 +73,10 @@ services:
     ports:
       - "1080:80"
     restart: unless-stopped
+  nginx:
+    image: redash/nginx:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    restart: always

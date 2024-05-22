@@ -6,6 +6,9 @@ compose_build:
 up:
 	docker-compose up -d --build
 
+build:
+	docker build -t $(TAG) .
+
 test_db:
 	@for i in `seq 1 5`; do \
 		if (docker-compose exec postgres sh -c 'psql -U postgres -c "select 1;"' 2>&1 > /dev/null) then break; \
@@ -41,13 +44,13 @@ frontend-unit-tests: bundle
 
 test: lint backend-unit-tests frontend-unit-tests
 
-build: bundle
+npm_build: bundle
 	npm run build
 
-watch: bundle
+npm_watch: bundle
 	npm run watch
 
-start: bundle
+npm_start: bundle
 	npm run start
 
 redis-cli:

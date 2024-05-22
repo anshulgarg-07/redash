@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+    commands:
+      - echo "Starting"
+      - echo "machine github.com login $GITHUB_BOT_NAME password $GITHUB_BOT_PAC" > .netrc
+
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+
+  build:
+    commands:
+      # run source code tests here
+      - echo "building image"
+      - make build TAG=latest-dev
+
+      - docker tag latest-dev ${ECR_REPOSITORY_URI_DEFAULT}:${IMAGE_TAG}
+      - docker push ${ECR_REPOSITORY_URI_DEFAULT}:${IMAGE_TAG}
