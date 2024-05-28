@@ -46,6 +46,10 @@ class Presto(BaseQueryRunner):
                 "catalog": {"type": "string"},
                 "username": {"type": "string"},
                 "password": {"type": "string"},
+                "information_schema_query": {
+                    "type": "string",
+                    "title": "Custom information schema query"
+                },
             },
             "order": [
                 "host",
@@ -55,6 +59,7 @@ class Presto(BaseQueryRunner):
                 "password",
                 "schema",
                 "catalog",
+                "information_schema_query",
             ],
             "required": ["host"],
         }
@@ -69,13 +74,14 @@ class Presto(BaseQueryRunner):
 
     def get_schema(self, get_stats=False):
         schema = {}
-        query = """
+        default_information_schema_query = """
         SELECT table_schema, table_name, column_name
         FROM information_schema.columns
         WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
         """
-
-        results, error = self.run_query(query, None)
+        information_schema_query = self.configuration.get('information_schema_query',
+                                                          default_information_schema_query)
+        results, error = self.run_query(information_schema_query, None)
 
         if error is not None:
             raise Exception("Failed getting schema.")
