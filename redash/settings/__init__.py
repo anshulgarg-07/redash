@@ -535,3 +535,7 @@ CSRF_TIME_LIMIT = int(os.environ.get("REDASH_CSRF_TIME_LIMIT", 3600 * 6))
 
 # Email blocked domains, use delimiter comma to separated multiple domains
 BLOCKED_DOMAINS = set_from_string(os.environ.get("REDASH_BLOCKED_DOMAINS", "qq.com"))
+
+# feature to enforce sql max rows limit per datasource
+DEFAULT_SQL_MAX_ROWS_LIMIT = int(os.environ.get("REDASH_DEFAULT_SQL_MAX_ROWS_LIMIT", 100000))
+FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT = parse_boolean(os.environ.get("REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT", "false"))

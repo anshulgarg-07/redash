@@ -14,7 +14,7 @@ from redash.utils import json_loads, query_is_select_no_limit, add_limit_to_quer
 from rq.timeouts import JobTimeoutException
 
 from redash.utils.requests_session import requests_or_advocate, requests_session, UnacceptableAddressException
-
+from redash.utils.sql_parse import ParsedQuery
 
 logger = logging.getLogger(__name__)
 
@@ -232,9 +232,14 @@ class BaseSQLQueryRunner(BaseQueryRunner):
             last_query = queries[-1]
             if query_is_select_no_limit(last_query):
                 queries[-1] = add_limit_to_query(last_query)
-            return combine_sql_statements(queries)
-        else:
-            return query_text
+            query_text = combine_sql_statements(queries)
+        if settings.FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT:
+            parsed_query = ParsedQuery(query_text)
+            query_text = parsed_query
+            if parsed_query.is_select():
+                limit = self.configuration.get("sql_max_rows_limit", settings.DEFAULT_SQL_MAX_ROWS_LIMIT)
+                query_text = parsed_query.get_query_with_new_limit(limit)
+        return query_text
 
 
 class BaseHTTPQueryRunner(BaseQueryRunner):

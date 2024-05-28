@@ -5,14 +5,14 @@ try:
 except ImportError:
     enabled = False
 
-from redash.query_runner import BaseQueryRunner, register
 from redash.query_runner import TYPE_STRING, TYPE_INTEGER, TYPE_BOOLEAN
+from redash.query_runner import register, BaseSQLQueryRunner
 from redash.utils import json_dumps, json_loads
 
 TYPES_MAP = {1: TYPE_STRING, 2: TYPE_INTEGER, 3: TYPE_BOOLEAN}
 
 
-class Druid(BaseQueryRunner):
+class Druid(BaseSQLQueryRunner):
     noop_query = "SELECT 1"
 
     @classmethod
@@ -25,8 +25,12 @@ class Druid(BaseQueryRunner):
                 "scheme": {"type": "string", "default": "http"},
                 "user": {"type": "string"},
                 "password": {"type": "string"},
+                "sql_max_rows_limit": {
+                    "type": "number",
+                    "default": 100000
+                }
             },
-            "order": ["scheme", "host", "port", "user", "password"],
+            "order": ["scheme", "host", "port", "user", "password", "sql_max_rows_limit"],
             "required": ["host"],
             "secret": ["password"],
         }

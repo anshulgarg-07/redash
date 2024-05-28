@@ -31,7 +31,7 @@ PRESTO_TYPES_MAPPING = {
 }
 
 
-class Presto(BaseQueryRunner):
+class Presto(BaseSQLQueryRunner):
     noop_query = "SHOW TABLES"
 
     @classmethod
@@ -50,6 +50,10 @@ class Presto(BaseQueryRunner):
                     "type": "string",
                     "title": "Custom information schema query"
                 },
+                'sql_max_rows_limit': {
+                    'type': 'number',
+                    'default': 100000
+                },
             },
             "order": [
                 "host",
@@ -60,6 +64,7 @@ class Presto(BaseQueryRunner):
                 "schema",
                 "catalog",
                 "information_schema_query",
+                "sql_max_rows_limit",
             ],
             "required": ["host"],
         }
