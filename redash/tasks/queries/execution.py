@@ -182,7 +182,8 @@ class QueryExecutor(object):
         self._log_progress("executing_query")
 
         query_runner = self.data_source.query_runner
-        annotated_query = self._annotate_query(query_runner)
+        sql_limit_query = query_runner.apply_auto_limit(self.query, should_apply_auto_limit=True)
+        annotated_query = self._annotate_query(query_runner, sql_limit_query)
 
         try:
             data, error = query_runner.run_query(annotated_query, self.user)
@@ -242,12 +243,12 @@ class QueryExecutor(object):
             models.db.session.commit()
             return result
 
-    def _annotate_query(self, query_runner):
+    def _annotate_query(self, query_runner, query):
         self.metadata["Job ID"] = self.job.id
         self.metadata["Query Hash"] = self.query_hash
         self.metadata["Scheduled"] = self.is_scheduled_query
 
-        return query_runner.annotate_query(self.query, self.metadata)
+        return query_runner.annotate_query(query, self.metadata)
 
     def _log_progress(self, state):
         logger.info(

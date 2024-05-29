@@ -9,6 +9,7 @@ import KeyboardShortcuts, { humanReadableShortcut } from "@/services/KeyboardSho
 import AutocompleteToggle from "./AutocompleteToggle";
 import "./QueryEditorControls.less";
 import AutoLimitCheckbox from "@/components/queries/QueryEditor/AutoLimitCheckbox";
+import InfoIcon from "./InfoIcon";
 
 export function ButtonTooltip({ title, shortcut, ...props }) {
   shortcut = humanReadableShortcut(shortcut, 1); // show only primary shortcut
@@ -22,6 +23,12 @@ export function ButtonTooltip({ title, shortcut, ...props }) {
     );
   return <Tooltip placement="top" title={title} {...props} />;
 }
+
+const containerStyle = { // styling for the info icon
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+};
 
 ButtonTooltip.propTypes = {
   title: PropTypes.node,
@@ -87,6 +94,9 @@ export default function EditorControl({
         />
       )}
       {autoLimitCheckboxProps !== false && <AutoLimitCheckbox {...autoLimitCheckboxProps} />}
+      <div style={containerStyle}>
+        <InfoIcon message="Max Output Rows - 100000" />
+      </div>
       {dataSourceSelectorProps === false && <span className="query-editor-controls-spacer" />}
       {dataSourceSelectorProps !== false && (
         <Select

@@ -235,7 +235,6 @@ class BaseSQLQueryRunner(BaseQueryRunner):
             query_text = combine_sql_statements(queries)
         if settings.FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT:
             parsed_query = ParsedQuery(query_text)
-            query_text = parsed_query
             if parsed_query.is_select():
                 limit = self.configuration.get("sql_max_rows_limit", settings.DEFAULT_SQL_MAX_ROWS_LIMIT)
                 query_text = parsed_query.get_query_with_new_limit(limit)

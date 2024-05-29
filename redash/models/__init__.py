@@ -122,7 +122,9 @@ class DataSource(BelongsToOrgMixin, db.Model):
             "syntax": self.query_runner.syntax,
             "paused": self.paused,
             "pause_reason": self.pause_reason,
-            "supports_auto_limit": self.query_runner.supports_auto_limit
+            "supports_auto_limit": self.query_runner.supports_auto_limit,
+            "sql_max_rows_limit": self.options.get("sql_max_rows_limit",
+                                                   settings.DEFAULT_SQL_MAX_ROWS_LIMIT) if settings.FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT else None
         }
 
         if all:
