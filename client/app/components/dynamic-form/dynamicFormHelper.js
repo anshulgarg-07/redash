@@ -80,7 +80,7 @@ function setDefaultValueToFields(configurationSchema, options = {}) {
   });
 }
 
-function getFields(type = {}, target = { options: {} }) {
+function getFields(type = {}, extraFields = [], target = { options: {} }) {
   const configurationSchema = type.configuration_schema;
   normalizeSchema(configurationSchema);
   const hasTargetObject = Object.keys(target.options).length > 0;
@@ -89,8 +89,7 @@ function getFields(type = {}, target = { options: {} }) {
   }
 
   const isNewTarget = !target.id;
-  const inputs = [
-    {
+  const defaults = [{
       name: "name",
       title: "Name",
       type: "text",
@@ -99,17 +98,33 @@ function getFields(type = {}, target = { options: {} }) {
       contentAfter: React.createElement("hr"),
       placeholder: `My ${type.name}`,
       autoFocus: isNewTarget,
-    },
+    }];
+    for (let i = 0; i < extraFields.length; i += 1) {
+      defaults.push({
+        name: extraFields[i].name,
+        title: extraFields[i].title,
+        type: extraFields[i].type,
+        required: extraFields[i].required,
+        initialValue: extraFields[i].initialValue,
+        contentAfter: React.createElement('hr'),
+        placeholder: extraFields[i].placeholder,
+        autoFocus: isNewTarget,
+      });
+    }
+    const inputs = [
+    ...defaults,
     ...orderedInputs(configurationSchema.properties, configurationSchema.order, target.options),
   ];
 
   return inputs;
 }
 
-function updateTargetWithValues(target, values) {
-  target.name = values.name;
-  Object.keys(values).forEach(key => {
-    if (key !== "name") {
+function updateTargetWithValues(target, values, baseKeys = []) {
+  for (let i = 0; i < baseKeys.length; i += 1) {
+    target[baseKeys[i]] = values[baseKeys[i]];
+  }
+  Object.keys(values).forEach((key) => {
+    if (!baseKeys.includes(key)) {
       target.options[key] = values[key];
     }
   });

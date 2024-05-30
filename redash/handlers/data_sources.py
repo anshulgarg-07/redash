@@ -73,6 +73,7 @@ class DataSourceResource(BaseResource):
 
         data_source.type = req["type"]
         data_source.name = req["name"]
+        data_source.queue_name = req['queue_name']
         models.db.session.add(data_source)
 
         try:
@@ -163,7 +164,7 @@ class DataSourceListResource(BaseResource):
 
         try:
             datasource = models.DataSource.create_with_group(
-                org=self.current_org, name=req["name"], type=req["type"], options=config
+                org=self.current_org, name=req["name"], type=req["type"], queue_name=req['queue_name'], options=config
             )
 
             models.db.session.commit()
