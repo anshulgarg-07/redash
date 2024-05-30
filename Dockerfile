@@ -28,9 +28,9 @@ FROM python:3.7-slim-buster
 EXPOSE 5000
 
 # Controls whether to install extra dependencies needed for all data sources.
-ARG skip_ds_deps=1
+ARG skip_ds_deps
 # Controls whether to install dev dependencies.
-ARG skip_dev_deps=""
+ARG skip_dev_deps
 
 RUN useradd --create-home redash
 

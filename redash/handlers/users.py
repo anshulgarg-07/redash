@@ -212,6 +212,20 @@ class UserRegenerateApiKeyResource(BaseResource):
         return user.to_dict(with_api_key=True)
 
 
+class UserEmailResource(BaseResource):
+    def get(self, user_email):
+        require_permission_or_owner('list_users', self.current_user.id)
+        user = get_object_or_404(models.User.get_by_email_and_org, user_email, self.current_org)
+
+        self.record_event({
+            'action': 'view',
+            'object_id': user_email,
+            'object_type': 'user',
+        })
+
+        return user.to_dict(with_api_key=is_admin_or_owner(user.id))
+
+
 class UserResource(BaseResource):
     decorators = BaseResource.decorators + [limiter.limit("50/hour", methods=["POST"])]
 

@@ -28,9 +28,13 @@ class Druid(BaseSQLQueryRunner):
                 "sql_max_rows_limit": {
                     "type": "number",
                     "default": 100000
-                }
+                },
+                "should_enforce_limit": {
+                    "type": "boolean",
+                    "default": False
+                },
             },
-            "order": ["scheme", "host", "port", "user", "password", "sql_max_rows_limit"],
+            "order": ["scheme", "host", "port", "user", "password", "sql_max_rows_limit", "should_enforce_limit"],
             "required": ["host"],
             "secret": ["password"],
         }

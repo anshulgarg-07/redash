@@ -82,7 +82,7 @@ from redash.handlers.users import (
     UserListResource,
     UserRegenerateApiKeyResource,
     UserResetPasswordResource,
-    UserResource,
+    UserResource, UserEmailResource,
 )
 from redash.handlers.visualizations import (
     VisualizationListResource,
@@ -291,6 +291,7 @@ api.add_org_resource(
     "/api/users/<user_id>/reset_password",
     endpoint="user_reset_password",
 )
+api.add_org_resource(UserEmailResource, '/api/users/email/<user_email>', endpoint='user_by_email')
 api.add_org_resource(
     UserRegenerateApiKeyResource,
     "/api/users/<user_id>/regenerate_api_key",

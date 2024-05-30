@@ -46,13 +46,22 @@ class Presto(BaseSQLQueryRunner):
                 "catalog": {"type": "string"},
                 "username": {"type": "string"},
                 "password": {"type": "string"},
+                "source": {
+                    "type": "string",
+                    "title": "Source to be passed to presto",
+                    "default": "pyhive"
+                },
                 "information_schema_query": {
                     "type": "string",
                     "title": "Custom information schema query"
                 },
-                'sql_max_rows_limit': {
-                    'type': 'number',
-                    'default': 100000
+                "sql_max_rows_limit": {
+                    "type": "number",
+                    "default": 100000
+                },
+                "should_enforce_limit": {
+                    "type": "boolean",
+                    "default": False
                 },
             },
             "order": [
@@ -61,10 +70,12 @@ class Presto(BaseSQLQueryRunner):
                 "port",
                 "username",
                 "password",
+                "source",
                 "schema",
                 "catalog",
                 "information_schema_query",
                 "sql_max_rows_limit",
+                "should_enforce_limit",
             ],
             "required": ["host"],
         }
@@ -112,6 +123,7 @@ class Presto(BaseSQLQueryRunner):
             password=(self.configuration.get("password") or None),
             catalog=self.configuration.get("catalog", "hive"),
             schema=self.configuration.get("schema", "default"),
+            source=self.configuration.get("source", "pyhive"),
         )
 
         cursor = connection.cursor()
