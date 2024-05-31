@@ -13,6 +13,7 @@ from redash import models
 from redash.permissions import has_access, view_only
 from redash.utils import json_loads
 from redash.models.parameterized_query import ParameterizedQuery
+from redash.settings import DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD
 
 
 from .query_result import (
@@ -264,6 +265,7 @@ def serialize_dashboard(obj, with_widgets=False, user=None, with_favorite_state=
         "updated_at": obj.updated_at,
         "created_at": obj.created_at,
         "version": obj.version,
+        "settings": {"should_force_refresh_on_load": DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD},
     }
 
     return d

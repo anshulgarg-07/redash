@@ -112,7 +112,7 @@ function useDashboard(dashboardData) {
       .finally(() => setDashboard(currentDashboard => extend({}, currentDashboard)));
   }, []);
 
-  const refreshWidget = useCallback(widget => loadWidget(widget, true), [loadWidget]);
+  const refreshWidget = useCallback(widget => loadWidget(widget, dashboardData.settings.should_force_refresh_on_load), [loadWidget]);
 
   const removeWidget = useCallback(widgetId => {
     setDashboard(currentDashboard =>
@@ -145,7 +145,7 @@ function useDashboard(dashboardData) {
     updatedParameters => {
       if (!refreshing) {
         setRefreshing(true);
-        loadDashboard(true, updatedParameters).finally(() => setRefreshing(false));
+        loadDashboard(dashboardData.settings.should_force_refresh_on_load, updatedParameters).finally(() => setRefreshing(false));
       }
     },
     [refreshing, loadDashboard]

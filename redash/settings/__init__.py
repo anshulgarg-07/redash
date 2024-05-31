@@ -539,3 +539,4 @@ BLOCKED_DOMAINS = set_from_string(os.environ.get("REDASH_BLOCKED_DOMAINS", "qq.c
 # feature to enforce sql max rows limit per datasource
 DEFAULT_SQL_MAX_ROWS_LIMIT = int(os.environ.get("REDASH_DEFAULT_SQL_MAX_ROWS_LIMIT", 100000))
 FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT = parse_boolean(os.environ.get("REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT", "false"))
+DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD = parse_boolean(os.environ.get("REDASH_DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD", "true"))
