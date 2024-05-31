@@ -5,6 +5,7 @@ try:
 except ImportError:
     enabled = False
 
+import ast
 from redash.query_runner import TYPE_STRING, TYPE_INTEGER, TYPE_BOOLEAN
 from redash.query_runner import register, BaseSQLQueryRunner
 from redash.utils import json_dumps, json_loads
@@ -33,8 +34,12 @@ class Druid(BaseSQLQueryRunner):
                     "type": "boolean",
                     "default": False
                 },
+                "query_context_params": {
+                    "type": "string",
+                    "default": "{}"
+                },
             },
-            "order": ["scheme", "host", "port", "user", "password", "sql_max_rows_limit", "should_enforce_limit"],
+            "order": ["scheme", "host", "port", "user", "password", "sql_max_rows_limit", "should_enforce_limit", "query_context_params"],
             "required": ["host"],
             "secret": ["password"],
         }
@@ -44,6 +49,7 @@ class Druid(BaseSQLQueryRunner):
         return enabled
 
     def run_query(self, query, user):
+        context_params = ast.literal_eval(self.configuration['query_context_params'])
         connection = connect(
             host=self.configuration["host"],
             port=self.configuration["port"],
@@ -51,6 +57,7 @@ class Druid(BaseSQLQueryRunner):
             scheme=(self.configuration.get("scheme") or "http"),
             user=(self.configuration.get("user") or None),
             password=(self.configuration.get("password") or None),
+            context=context_params,
         )
 
         cursor = connection.cursor()
