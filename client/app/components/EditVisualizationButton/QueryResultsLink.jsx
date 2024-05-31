@@ -8,12 +8,13 @@ export default function QueryResultsLink(props) {
   const { query, queryResult, fileType } = props;
   const resultId = queryResult.getId && queryResult.getId();
   const resultData = queryResult.getData && queryResult.getData();
+  const salt = (new Date()).getTime();
 
   if (resultId && resultData && query.name) {
     if (query.id) {
-      href = `api/queries/${query.id}/results/${resultId}.${fileType}${props.embed ? `?api_key=${props.apiKey}` : ""}`;
+      href = `api/queries/${query.id}/results/${resultId}.${fileType}${props.embed ? `?api_key=${props.apiKey}&${salt}` : ""}`;
     } else {
-      href = `api/query_results/${resultId}.${fileType}`;
+      href = `api/query_results/${resultId}.${fileType}?${salt}`;
     }
   }
 

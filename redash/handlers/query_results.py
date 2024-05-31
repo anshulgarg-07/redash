@@ -21,6 +21,7 @@ from redash.tasks.queries import enqueue_query
 from redash.utils import (
     collect_parameters_from_request,
     json_dumps,
+    json_loads,
     utcnow,
     to_filename,
 )
@@ -379,9 +380,8 @@ class QueryResultResource(BaseResource):
 
         if query_result:
             require_access(query_result.data_source, self.current_user, view_only)
-
-            if isinstance(self.current_user, models.ApiUser):
-                event = {
+            
+            event = {
                     "user_id": None,
                     "org_id": self.current_org.id,
                     "action": "api_get",
@@ -391,13 +391,20 @@ class QueryResultResource(BaseResource):
                     "ip": request.remote_addr,
                 }
 
-                if query_id:
-                    event["object_type"] = "query"
-                    event["object_id"] = query_id
-                else:
-                    event["object_type"] = "query_result"
-                    event["object_id"] = query_result_id
+            if query_id:
+                event["object_type"] = "query"
+                event["object_id"] = query_id
+            else:
+                event["object_type"] = "query_result"
+                event["object_id"] = query_result_id
 
+            if isinstance(self.current_user, models.ApiUser):
+                event['action'] = 'api_get'
+                event['api_key'] = self.current_user.name
+            else:
+                event['action'] = 'download'
+                
+            if filetype != 'json':
                 self.record_event(event)
 
             response_builders = {
