@@ -33,8 +33,14 @@ def create_org(org_name, user_name, email, password):
         org=default_org,
         type=Group.BUILTIN_GROUP,
     )
+    pseudo_admin_group = Group(
+        name='pseudo_admin', 
+        permissions=['pseudo_admin'], 
+        org=default_org, 
+        type=Group.BUILTIN_GROUP,
+    )
 
-    db.session.add_all([default_org, admin_group, default_group])
+    db.session.add_all([default_org, admin_group, default_group, pseudo_admin_group])
     db.session.commit()
 
     user = User(

@@ -316,6 +316,9 @@ THROTTLE_LOGIN_PATTERN = os.environ.get("REDASH_THROTTLE_LOGIN_PATTERN", "50/hou
 LIMITER_STORAGE = os.environ.get("REDASH_LIMITER_STORAGE", REDIS_URL)
 THROTTLE_PASS_RESET_PATTERN = os.environ.get("REDASH_THROTTLE_PASS_RESET_PATTERN", "10/hour")
 
+USER_LIST_RESOURCE_RATELIMIT = os.environ.get('USER_LIST_RESOURCE_RATELIMIT', '200/day;50/hour')
+USER_RESOURCE_RATELIMIT = os.environ.get('USER_RESOURCE_RATELIMIT', '50/hour')
+
 # CORS settings for the Query Result API (and possibly future external APIs).
 # In most cases all you need to do is set REDASH_CORS_ACCESS_CONTROL_ALLOW_ORIGIN
 # to the calling domain (or domains in a comma separated list).
@@ -540,3 +543,4 @@ BLOCKED_DOMAINS = set_from_string(os.environ.get("REDASH_BLOCKED_DOMAINS", "qq.c
 DEFAULT_SQL_MAX_ROWS_LIMIT = int(os.environ.get("REDASH_DEFAULT_SQL_MAX_ROWS_LIMIT", 100000))
 FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT = parse_boolean(os.environ.get("REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT", "false"))
 DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD = parse_boolean(os.environ.get("REDASH_DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD", "true"))
+TEXT_FILTER_STOP_WORDS = set_from_string(os.environ.get("TEXT_FILTER_STOP_WORDS", "SELECT,INSERT,DROP,ALTER,TRUNCATE,CREATE,UNION,INTERSECT,EXCEPT"))

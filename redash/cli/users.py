@@ -173,8 +173,13 @@ def create_root(email, name, google_auth=False, password=None, organization="def
         org=org,
         type=models.Group.BUILTIN_GROUP,
     )
+    pseudo_admin_group = models.Group(
+        name='pseudo_admin', 
+        permissions=['pseudo_admin'],
+        org=org, 
+        type=models.Group.BUILTIN_GROUP)
 
-    models.db.session.add_all([org, admin_group, default_group])
+    models.db.session.add_all([org, admin_group, default_group, pseudo_admin_group])
     models.db.session.commit()
 
     user = models.User(
