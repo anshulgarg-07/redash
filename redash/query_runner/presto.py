@@ -1,6 +1,7 @@
 from collections import defaultdict
 from redash.query_runner import *
 from redash.utils import json_dumps, json_loads
+from redash import settings
 
 import logging
 
@@ -115,6 +116,11 @@ class Presto(BaseSQLQueryRunner):
         return list(schema.values())
 
     def run_query(self, query, user):
+        if settings.FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT and len(query) >= settings.QUERY_CHARACTER_LIMIT:
+            json_data = None
+            error = "Query text length ({}) exceeds the maximum length ({})".format(len(query),
+                                                                                    settings.QUERY_CHARACTER_LIMIT)
+            return json_data, error
         connection = presto.connect(
             host=self.configuration.get("host", ""),
             port=self.configuration.get("port", 8080),

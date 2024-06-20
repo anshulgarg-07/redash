@@ -62,6 +62,10 @@ export default class DefaultPolicy {
     return get(object, "can_edit", false);
   }
 
+  canRefresh(object) {
+    return get(object, "can_refresh", true)
+  }
+
   canRun() {
     return true;
   }

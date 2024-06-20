@@ -2,7 +2,7 @@ from flask import request, url_for
 from funcy import project, partial
 
 from flask_restful import abort
-from redash import models
+from redash import models, settings
 from redash.handlers.base import (
     BaseResource,
     get_object_or_404,
@@ -208,6 +208,15 @@ class DashboardResource(BaseResource):
             response["api_key"] = api_key.api_key
 
         response["can_edit"] = can_modify(dashboard, self.current_user)
+        
+        if settings.ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH and (self.current_user.has_permission('pseudo_admin')
+                                                                       or self.current_user.has_permission('admin')
+                                                                       or self.current_user.has_permission('refresh_dashboard')):
+            response['can_refresh'] = True
+        elif not settings.ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH:
+            response['can_refresh'] = True
+        else:
+            response['can_refresh'] = False
 
         self.record_event(
             {"action": "view", "object_id": dashboard.id, "object_type": "dashboard"}

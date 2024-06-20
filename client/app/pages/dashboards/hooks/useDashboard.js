@@ -41,6 +41,7 @@ function useDashboard(dashboardData) {
   const [gridDisabled, setGridDisabled] = useState(false);
   const globalParameters = useMemo(() => dashboard.getParametersDefs(), [dashboard]);
   const canEditDashboard = !dashboard.is_archived && policy.canEdit(dashboard);
+  const canRefreshDashboard = policy.canRefresh(dashboard)
   const isDashboardOwnerOrAdmin = useMemo(
     () =>
       !dashboard.is_archived &&
@@ -112,7 +113,7 @@ function useDashboard(dashboardData) {
       .finally(() => setDashboard(currentDashboard => extend({}, currentDashboard)));
   }, []);
 
-  const refreshWidget = useCallback(widget => loadWidget(widget, dashboardData.settings.should_force_refresh_on_load), [loadWidget]);
+  const refreshWidget = useCallback(widget => loadWidget(widget, dashboardData.settings.should_force_refresh_on_load), [loadWidget, dashboardData.settings.should_force_refresh_on_load]);
 
   const removeWidget = useCallback(widgetId => {
     setDashboard(currentDashboard =>
@@ -144,11 +145,15 @@ function useDashboard(dashboardData) {
   const refreshDashboard = useCallback(
     updatedParameters => {
       if (!refreshing) {
-        setRefreshing(true);
-        loadDashboard(dashboardData.settings.should_force_refresh_on_load, updatedParameters).finally(() => setRefreshing(false));
+        if (canRefreshDashboard) {
+          setRefreshing(true);
+          loadDashboard(dashboardData.settings.should_force_refresh_on_load, updatedParameters).finally(() => setRefreshing(false));
+        } else {
+          alert("Complete Dashboard Refresh Temporarily Unavailable for NYE. Please Load Individual Charts")
+        }
       }
     },
-    [refreshing, loadDashboard]
+    [refreshing, loadDashboard, dashboardData.settings.should_force_refresh_on_load, canRefreshDashboard]
   );
 
   const archiveDashboard = useCallback(() => {
@@ -212,7 +217,11 @@ function useDashboard(dashboardData) {
 
   // reload dashboard when filter option changes
   useEffect(() => {
-    loadDashboard();
+    if (canRefreshDashboard) {
+      loadDashboard();
+    } else {
+      alert("Complete Dashboard Refresh Temporarily Unavailable for NYE. Please Load Individual Charts")
+    }
   }, [dashboard.dashboard_filters_enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {

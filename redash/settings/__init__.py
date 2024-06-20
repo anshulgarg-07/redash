@@ -307,6 +307,8 @@ ALERTS_DEFAULT_MAIL_SUBJECT_TEMPLATE = os.environ.get(
     "REDASH_ALERTS_DEFAULT_MAIL_SUBJECT_TEMPLATE", "({state}) {alert_name}"
 )
 
+ENABLE_ALERTS = parse_boolean(os.environ.get('REDASH_ENABLE_ALERTS', 'true'))
+
 # How many requests are allowed per IP to the login page before
 # being throttled?
 # See https://flask-limiter.readthedocs.io/en/stable/#rate-limit-string-notation
@@ -437,6 +439,8 @@ EVENT_REPORTING_WEBHOOKS = array_from_string(
     os.environ.get("REDASH_EVENT_REPORTING_WEBHOOKS", "")
 )
 
+ENABLE_EVENT_LOGS = parse_boolean(os.environ.get("REDASH_ENABLE_EVENT_LOGS", "true"))
+
 # Support for Sentry (https://getsentry.com/). Just set your Sentry DSN to enable it:
 SENTRY_DSN = os.environ.get("REDASH_SENTRY_DSN", "")
 SENTRY_ENVIRONMENT = os.environ.get("REDASH_SENTRY_ENVIRONMENT")
@@ -544,3 +548,10 @@ DEFAULT_SQL_MAX_ROWS_LIMIT = int(os.environ.get("REDASH_DEFAULT_SQL_MAX_ROWS_LIM
 FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT = parse_boolean(os.environ.get("REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT", "false"))
 DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD = parse_boolean(os.environ.get("REDASH_DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD", "true"))
 TEXT_FILTER_STOP_WORDS = set_from_string(os.environ.get("TEXT_FILTER_STOP_WORDS", "SELECT,INSERT,DROP,ALTER,TRUNCATE,CREATE,UNION,INTERSECT,EXCEPT"))
+
+# feature to enforce character limit on the query
+FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT = parse_boolean(os.environ.get("REDASH_FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT", "false"))
+QUERY_CHARACTER_LIMIT = int(os.environ.get("FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT", 8000))
+
+# feature to block dashboard level access button
+ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH = parse_boolean(os.environ.get("REDASH_ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH", "true"))

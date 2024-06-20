@@ -60,7 +60,8 @@ def record_event(org, user, options):
     if "timestamp" not in options:
         options["timestamp"] = int(time.time())
 
-    record_event_task.delay(options)
+    if settings.ENABLE_EVENT_LOGS:
+        record_event_task.delay(options)
 
 
 def require_fields(req, fields):

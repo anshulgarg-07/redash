@@ -113,7 +113,7 @@ def require_admin_or_owner(object_owner_id):
 
 def can_modify(obj, user):
     modify_flag = is_admin_or_owner(obj.user_id) or user.has_access(obj, ACCESS_TYPE_MODIFY)
-    # Allow pseudo admin to do edit the query and dashboard
+    # Allow pseudo admin to edit the query and dashboard
     if obj.__class__.__name__ in {"Query", "Dashboard"}:
         modify_flag = modify_flag or is_pseudo_admin(obj.user_id)
     return modify_flag

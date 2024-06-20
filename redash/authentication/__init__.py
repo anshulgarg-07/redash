@@ -211,7 +211,8 @@ def log_user_logged_in(app, user):
         "ip": request.remote_addr,
     }
 
-    record_event.delay(event)
+    if settings.ENABLE_EVENT_LOGS:
+        record_event.delay(event)
 
 
 @login_manager.unauthorized_handler
