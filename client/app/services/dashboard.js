@@ -183,10 +183,6 @@ Dashboard.prototype.canEdit = function canEdit() {
   return policy.canEdit(this);
 };
 
-Dashboard.prototype.canRefreshDashboard = function canRefreshDashboard() {
-  return policy.canRefresh(this)
-};
-
 Dashboard.prototype.getParametersDefs = function getParametersDefs() {
   const globalParams = {};
   const queryParams = location.search;

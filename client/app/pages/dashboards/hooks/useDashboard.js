@@ -42,11 +42,12 @@ function useDashboard(dashboardData) {
   const globalParameters = useMemo(() => dashboard.getParametersDefs(), [dashboard]);
   const canEditDashboard = !dashboard.is_archived && policy.canEdit(dashboard);
   const canRefreshDashboard = policy.canRefresh(dashboard)
+  const getDashboardRestrictedRefreshAlertMessage = policy.getDashboardRestrictedRefreshAlertMessage(dashboard)
   const isDashboardOwnerOrAdmin = useMemo(
     () =>
       !dashboard.is_archived &&
       has(dashboard, "user.id") &&
-      (currentUser.id === dashboard.user.id || currentUser.isAdmin),
+      (currentUser.id === dashboard.user.id || currentUser.isAdmin || currentUser.isPseudoAdmin),
     [dashboard]
   );
   const hasOnlySafeQueries = useMemo(
@@ -149,11 +150,11 @@ function useDashboard(dashboardData) {
           setRefreshing(true);
           loadDashboard(dashboardData.settings.should_force_refresh_on_load, updatedParameters).finally(() => setRefreshing(false));
         } else {
-          alert("Complete Dashboard Refresh Temporarily Unavailable for NYE. Please Load Individual Charts")
+          alert(getDashboardRestrictedRefreshAlertMessage)
         }
       }
     },
-    [refreshing, loadDashboard, dashboardData.settings.should_force_refresh_on_load, canRefreshDashboard]
+    [refreshing, loadDashboard, dashboardData.settings.should_force_refresh_on_load, canRefreshDashboard, getDashboardRestrictedRefreshAlertMessage]
   );
 
   const archiveDashboard = useCallback(() => {
@@ -220,7 +221,7 @@ function useDashboard(dashboardData) {
     if (canRefreshDashboard) {
       loadDashboard();
     } else {
-      alert("Complete Dashboard Refresh Temporarily Unavailable for NYE. Please Load Individual Charts")
+      alert(getDashboardRestrictedRefreshAlertMessage)
     }
   }, [dashboard.dashboard_filters_enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 

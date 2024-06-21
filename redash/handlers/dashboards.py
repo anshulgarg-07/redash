@@ -217,6 +217,8 @@ class DashboardResource(BaseResource):
             response['can_refresh'] = True
         else:
             response['can_refresh'] = False
+        
+        response['dashboard_refresh_restricted_alert_message'] = settings.DASHBOARD_RESTRICTED_REFRESH_MESSAGE
 
         self.record_event(
             {"action": "view", "object_id": dashboard.id, "object_type": "dashboard"}
