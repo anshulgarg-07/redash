@@ -114,7 +114,7 @@ function useDashboard(dashboardData) {
       .finally(() => setDashboard(currentDashboard => extend({}, currentDashboard)));
   }, []);
 
-  const refreshWidget = useCallback(widget => loadWidget(widget, dashboardData.settings.should_force_refresh_on_load), [loadWidget, dashboardData.settings.should_force_refresh_on_load]);
+  const refreshWidget = useCallback(widget => loadWidget(widget, true), [loadWidget]);
 
   const removeWidget = useCallback(widgetId => {
     setDashboard(currentDashboard =>
@@ -128,7 +128,7 @@ function useDashboard(dashboardData) {
   dashboardRef.current = dashboard;
 
   const loadDashboard = useCallback(
-    (forceRefresh = false, updatedParameters = []) => {
+    (forceRefresh = dashboard.settings.should_force_refresh_on_load, updatedParameters = []) => {
       const affectedWidgets = getAffectedWidgets(dashboardRef.current.widgets, updatedParameters);
       const loadWidgetPromises = compact(
         affectedWidgets.map(widget => loadWidget(widget, forceRefresh).catch(error => error))
@@ -140,7 +140,7 @@ function useDashboard(dashboardData) {
         setFilters(updatedFilters);
       });
     },
-    [loadWidget]
+    [loadWidget, dashboard]
   );
 
   const refreshDashboard = useCallback(
@@ -148,13 +148,13 @@ function useDashboard(dashboardData) {
       if (!refreshing) {
         if (canRefreshDashboard) {
           setRefreshing(true);
-          loadDashboard(dashboardData.settings.should_force_refresh_on_load, updatedParameters).finally(() => setRefreshing(false));
+          loadDashboard(true, updatedParameters).finally(() => setRefreshing(false));
         } else {
           alert(getDashboardRestrictedRefreshAlertMessage)
         }
       }
     },
-    [refreshing, loadDashboard, dashboardData.settings.should_force_refresh_on_load, canRefreshDashboard, getDashboardRestrictedRefreshAlertMessage]
+    [refreshing, loadDashboard, canRefreshDashboard, getDashboardRestrictedRefreshAlertMessage]
   );
 
   const archiveDashboard = useCallback(() => {
@@ -210,7 +210,7 @@ function useDashboard(dashboardData) {
   useEffect(() => {
     setDashboard(dashboardData);
     loadDashboard();
-  }, [dashboardData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dashboardData, dashboard.settings.should_force_refresh_on_load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     document.title = dashboard.name;
@@ -223,7 +223,7 @@ function useDashboard(dashboardData) {
     } else {
       alert(getDashboardRestrictedRefreshAlertMessage)
     }
-  }, [dashboard.dashboard_filters_enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dashboard.dashboard_filters_enabled, dashboard.settings.should_force_refresh_on_load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     dashboard,

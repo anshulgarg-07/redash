@@ -64,6 +64,15 @@ class Presto(BaseSQLQueryRunner):
                     "type": "boolean",
                     "default": False
                 },
+                'user_impersonation': {
+                    'type': 'boolean',
+                    'title': 'Allows passing logged-in users email address as username to presto, Instead of the default username being sent',
+                    'default': False
+                },
+                'sql_character_limit': {
+                    'type': 'number',
+                    'default': settings.QUERY_CHARACTER_LIMIT
+                }
             },
             "order": [
                 "host",
@@ -77,6 +86,7 @@ class Presto(BaseSQLQueryRunner):
                 "information_schema_query",
                 "sql_max_rows_limit",
                 "should_enforce_limit",
+                "user_impersonation"
             ],
             "required": ["host"],
         }
@@ -116,16 +126,22 @@ class Presto(BaseSQLQueryRunner):
         return list(schema.values())
 
     def run_query(self, query, user):
-        if settings.FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT and len(query) >= settings.QUERY_CHARACTER_LIMIT:
+        should_impersonate_user = self.configuration.get('user_impersonation', False)
+        if not should_impersonate_user or user is None:
+            username = self.configuration.get('username', 'redash')
+        else:
+            username = user.email
+        query_character_limit = self.configuration.get('sql_character_limit', settings.QUERY_CHARACTER_LIMIT)
+        if settings.FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT and len(query) >= query_character_limit:
             json_data = None
             error = "Query text length ({}) exceeds the maximum length ({})".format(len(query),
-                                                                                    settings.QUERY_CHARACTER_LIMIT)
+                                                                                    query_character_limit)
             return json_data, error
         connection = presto.connect(
             host=self.configuration.get("host", ""),
             port=self.configuration.get("port", 8080),
             protocol=self.configuration.get("protocol", "http"),
-            username=self.configuration.get("username", "redash"),
+            username=username,
             password=(self.configuration.get("password") or None),
             catalog=self.configuration.get("catalog", "hive"),
             schema=self.configuration.get("schema", "default"),

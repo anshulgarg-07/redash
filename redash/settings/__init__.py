@@ -554,5 +554,5 @@ FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT = parse_boolean(os.environ.get("REDASH_FEA
 QUERY_CHARACTER_LIMIT = int(os.environ.get("FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT", 8000))
 
 # feature to block dashboard level access button
-ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH = parse_boolean(os.environ.get("REDASH_ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH", "true"))
+ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH = parse_boolean(os.environ.get("REDASH_ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH", "false"))
 DASHBOARD_RESTRICTED_REFRESH_MESSAGE = os.environ.get("DASHBOARD_RESTRICTED_REFRESH_MESSAGE", "Complete dashboard refresh temporarily unavailable for NYE, please load individual charts")
