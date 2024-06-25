@@ -114,7 +114,8 @@ const config = {
       { from: "client/app/unsupported.html" },
       { from: "client/app/unsupportedRedirect.js" },
       { from: "client/app/assets/css/*.css", to: "styles/", flatten: true },
-      { from: "client/app/assets/fonts", to: "fonts/" }
+      { from: "client/app/assets/fonts", to: "fonts/" },
+      { from: "client/app/browserDetection.js" },
     ]),
     isHotReloadingEnabled && new ReactRefreshWebpackPlugin({ overlay: false })
   ].filter(Boolean),

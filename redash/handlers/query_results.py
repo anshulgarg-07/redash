@@ -64,6 +64,8 @@ error_messages = {
 def run_query(
     query, parameters, data_source, query_id, should_apply_auto_limit, max_age=0
 ):
+    if "current_user" in parameters:
+        parameters.update({"current_user": current_user.email})
     if data_source.paused:
         if data_source.pause_reason:
             message = "{} is paused ({}). Please try later.".format(
