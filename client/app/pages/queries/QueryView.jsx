@@ -215,6 +215,7 @@ function QueryView(props) {
                   isCancelling={isExecutionCancelling}
                   onCancel={cancelExecution}
                   updatedAt={updatedAt}
+                  queryResult={queryResult}
                 />
               </div>
             )}

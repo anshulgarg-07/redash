@@ -300,7 +300,7 @@ class DashboardSerializer(Serializer):
         return result
 
 
-def serialize_job(job):
+def serialize_job(job, wait_no: int = 0):
     # TODO: this is mapping to the old Job class statuses. Need to update the client side and remove this
     STATUSES = {
         JobStatus.QUEUED: 1,
@@ -339,5 +339,6 @@ def serialize_job(job):
             "error": error,
             "result": result,
             "query_result_id": query_result_id,
-        }
+        },
+        "wait_no": wait_no
     }

@@ -205,8 +205,7 @@ class DataSourceSchemaResource(BaseResource):
                 return {"schema": cached_schema}
 
         job = get_schema.delay(data_source.id, refresh)
-
-        return serialize_job(job)
+        return serialize_job(job, 0)
 
 
 class DataSourcePauseResource(BaseResource):

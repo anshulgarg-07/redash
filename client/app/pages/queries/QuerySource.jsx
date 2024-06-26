@@ -362,6 +362,7 @@ function QuerySource(props) {
                       error={executionError}
                       isCancelling={isExecutionCancelling}
                       onCancel={cancelExecution}
+                      queryResult={queryResult}
                     />
                   </div>
                 )}

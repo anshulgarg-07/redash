@@ -7,12 +7,12 @@ from rq.job import JobStatus
 from rq.timeouts import JobTimeoutException
 from rq.exceptions import NoSuchJobError
 
-from redash import models, redis_connection, settings
+from redash import models, redis_connection, settings, redis_ro_connection
 from redash.query_runner import InterruptException
 from redash.tasks.worker import Queue, Job
 from redash.tasks.alerts import check_alerts_for_query
 from redash.tasks.failure_report import track_failure
-from redash.utils import gen_query_hash, json_dumps, utcnow
+from redash.utils import gen_query_hash, json_dumps, utcnow, json_loads
 from redash.worker import get_job_logger
 
 logger = get_job_logger(__name__)
@@ -25,6 +25,27 @@ def _job_lock_id(query_hash, data_source_id):
 
 def _unlock(query_hash, data_source_id):
     redis_connection.delete(_job_lock_id(query_hash, data_source_id))
+    
+def store_queue_name_job_id_pair(job_id, queue_name):
+    key_name = "queue_name:" + job_id
+    redis_connection.setex(key_name, 14400, queue_name)  # Giving TTL for the pair as 4 hours
+
+
+def get_queue_name_from_job_id(job_id):
+    key_name = "queue_name:" + job_id
+    queue_name = redis_connection.get(key_name)
+    return queue_name
+
+
+def get_wait_rank(job_id, queue_name):
+    if queue_name is not None:
+        all_jobs = redis_ro_connection.lrange(queue_name, 0, -1)
+        count = len(all_jobs)
+        for i, job in enumerate(all_jobs):
+            if json_loads(job)['headers']['id'] == job_id:
+                return count - i
+    else:
+        return "NA"
 
 
 def enqueue_query(

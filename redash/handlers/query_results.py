@@ -17,7 +17,7 @@ from redash.permissions import (
     view_only,
 )
 from redash.tasks import Job
-from redash.tasks.queries import enqueue_query
+from redash.tasks.queries import enqueue_query, get_wait_rank, get_queue_name_from_job_id, store_queue_name_job_id_pair
 from redash.utils import (
     collect_parameters_from_request,
     json_dumps,
@@ -128,7 +128,9 @@ def run_query(
                 "query_id": query_id,
             },
         )
-        return serialize_job(job)
+        store_queue_name_job_id_pair(job.id, data_source.queue_name)
+        wait_no = get_wait_rank(job.id, data_source.queue_name)
+        return serialize_job(job, wait_no=wait_no)
 
 
 def get_download_filename(query_result, query, filetype):
@@ -382,7 +384,7 @@ class QueryResultResource(BaseResource):
 
         if query_result:
             require_access(query_result.data_source, self.current_user, view_only)
-            
+
             event = {
                     "user_id": None,
                     "org_id": self.current_org.id,
@@ -405,7 +407,7 @@ class QueryResultResource(BaseResource):
                 event['api_key'] = self.current_user.name
             else:
                 event['action'] = 'download'
-                
+
             if filetype != 'json':
                 self.record_event(event)
 
@@ -469,7 +471,9 @@ class JobResource(BaseResource):
         Retrieve info about a running query job.
         """
         job = Job.fetch(job_id)
-        return serialize_job(job)
+        queue_name = get_queue_name_from_job_id(job.id)
+        wait_no = get_wait_rank(job.id, queue_name)
+        return serialize_job(job, wait_no=wait_no)
 
     def delete(self, job_id):
         """
