@@ -19,6 +19,7 @@ from redash.handlers.dashboards import (
     DashboardTagsResource,
     PublicDashboardResource,
 )
+from redash.handlers.data_catalog import DataCatalogTableDetailsResource
 from redash.handlers.data_sources import (
     DataSourceListResource,
     DataSourcePauseResource,
@@ -140,6 +141,11 @@ api.add_org_resource(
     DashboardShareResource,
     "/api/dashboards/<dashboard_id>/share",
     endpoint="dashboard_share",
+)
+
+api.add_org_resource(
+    DataCatalogTableDetailsResource, 
+    '/api/data_catalog/<catalog_type>'
 )
 
 api.add_org_resource(

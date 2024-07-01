@@ -1,6 +1,7 @@
 import os
 import importlib
 import ssl
+import json
 from funcy import distinct, remove
 from flask_talisman import talisman
 
@@ -557,3 +558,11 @@ QUERY_CHARACTER_LIMIT = int(os.environ.get("FEATURE_ENFORCE_QUERY_CHARACTER_LIMI
 # feature to block dashboard level access button
 ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH = parse_boolean(os.environ.get("REDASH_ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH", "false"))
 DASHBOARD_RESTRICTED_REFRESH_MESSAGE = os.environ.get("DASHBOARD_RESTRICTED_REFRESH_MESSAGE", "Complete dashboard refresh temporarily unavailable for NYE, please load individual charts")
+# Catalog link display
+REDASH_DB_CATALOG_MAPPING = json.loads(os.environ.get('REDASH_DB_CATALOG_MAPPING', "{\"1\":\"zomato\"}"))
+
+# API link to get the datasets details of data-catalog.grofers.io
+DATA_CATALOG_DATASET_API = os.environ.get('DATA_CATALOG_DATASET_API', 'http://172.31.67.247:8080/entitiesV2/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3A{platform},{table_name},{origin})')
+DATA_CATALOG_ACCESS_KEY = os.environ.get('DATA_CATALOG_ACCESS_KEY','')
+# Link of Datasets at data-catalog.grofers.io
+REDASH_VIEW_CATALOG_LINK = os.environ.get('REDASH_VIEW_CATALOG_LINK', 'https://datahub.eternal.com/dataset/urn:li:dataset:(urn:li:dataPlatform:{data_platform},{full_table_name},PROD)/Schema?schemaFilter=')

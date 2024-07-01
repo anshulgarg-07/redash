@@ -5,6 +5,8 @@ import time
 import numbers
 import pytz
 
+from typing import List, Union
+
 from sqlalchemy import distinct, or_, and_, UniqueConstraint, cast
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.event import listens_for
@@ -18,6 +20,7 @@ from sqlalchemy_utils.models import generic_repr
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 
 from redash import redis_connection, utils, settings
+from redash.settings import REDASH_DB_CATALOG_MAPPING, REDASH_VIEW_CATALOG_LINK, DATASOURCE_SECRET_KEY, DEFAULT_SQL_MAX_ROWS_LIMIT, FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT
 from redash.destinations import (
     get_configuration_schema_for_destination_type,
     get_destination,
@@ -94,7 +97,7 @@ class DataSource(BelongsToOrgMixin, db.Model):
         "encrypted_options",
         ConfigurationContainer.as_mutable(
             EncryptedConfiguration(
-                db.Text, settings.DATASOURCE_SECRET_KEY, FernetEngine
+                db.Text, DATASOURCE_SECRET_KEY, FernetEngine
             )
         ),
     )
@@ -124,7 +127,7 @@ class DataSource(BelongsToOrgMixin, db.Model):
             "pause_reason": self.pause_reason,
             "supports_auto_limit": self.query_runner.supports_auto_limit,
             "sql_max_rows_limit": self.options.get("sql_max_rows_limit",
-                                                   settings.DEFAULT_SQL_MAX_ROWS_LIMIT) if settings.FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT else None
+                                                   DEFAULT_SQL_MAX_ROWS_LIMIT) if FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT else None
         }
 
         if all:
@@ -194,11 +197,10 @@ class DataSource(BelongsToOrgMixin, db.Model):
         out_schema = None
         if not refresh:
             out_schema = self.get_cached_schema()
-
         if out_schema is None:
             query_runner = self.query_runner
             schema = query_runner.get_schema(get_stats=refresh)
-
+            schema = self.add_catalog_link(schema)
             try:
                 out_schema = self._sort_schema(schema)
             except Exception:
@@ -208,12 +210,19 @@ class DataSource(BelongsToOrgMixin, db.Model):
                 out_schema = schema
             finally:
                 redis_connection.set(self._schema_key, json_dumps(out_schema))
-
         return out_schema
+
+    def add_catalog_link(self, schema: Union[List[dict], dict]):
+        keys = [str(i) for i in REDASH_DB_CATALOG_MAPPING.keys()]
+        if str(self.id) in keys:
+            data_platform=str(REDASH_DB_CATALOG_MAPPING[str(self.id)])
+            for table in schema:
+                table['catalog'] = REDASH_VIEW_CATALOG_LINK.format(data_platform=data_platform, full_table_name= table.get('name'))
+        return schema
 
     def _sort_schema(self, schema):
         return [
-            {"name": i["name"], "columns": sorted(i["columns"], key=lambda x: x["name"] if isinstance(x, dict) else x)}
+            {"name": i["name"], "columns": sorted(i["columns"], key=lambda x: x["name"] if isinstance(x, dict) else x), "catalog": i["catalog"]}
             for i in sorted(schema, key=lambda x: x["name"])
         ]
 
@@ -1367,7 +1376,7 @@ class NotificationDestination(BelongsToOrgMixin, db.Model):
         "encrypted_options",
         ConfigurationContainer.as_mutable(
             EncryptedConfiguration(
-                db.Text, settings.DATASOURCE_SECRET_KEY, FernetEngine
+                db.Text, DATASOURCE_SECRET_KEY, FernetEngine
             )
         ),
     )
@@ -1512,9 +1521,9 @@ def init_db():
         type=Group.BUILTIN_GROUP,
     )
     pseudo_admin_group = Group(
-        name='pseudo_admin', 
+        name='pseudo_admin',
         permissions=['pseudo_admin'],
-        org=default_org, 
+        org=default_org,
         type=Group.BUILTIN_GROUP,
     )
 

@@ -14,6 +14,7 @@ import recordEvent from "@/services/recordEvent";
 import { ExecutionStatus } from "@/services/query-result";
 import routes from "@/services/routes";
 import notification from "@/services/notification";
+import TableDetailsDialog from "@/components/queries/TableDetailsDialog";
 import * as queryFormat from "@/lib/queryFormat";
 
 import QueryPageHeader from "./components/QueryPageHeader";
@@ -158,6 +159,12 @@ function QuerySource(props) {
     }
   }, []);
 
+  const handleShowTableDetails = (catalog) => {
+    TableDetailsDialog.showModal({
+      catalog,
+    });
+  };
+
   const [selectedText, setSelectedText] = useState(null);
 
   const doExecuteQuery = useCallback(
@@ -229,6 +236,7 @@ function QuerySource(props) {
                 }
                 onSchemaUpdate={setSchema}
                 onItemSelect={handleSchemaItemSelect}
+                onShowTableDetails={handleShowTableDetails}
               />
             </div>
 

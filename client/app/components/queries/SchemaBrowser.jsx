@@ -21,6 +21,7 @@ const SchemaItemColumnType = PropTypes.shape({
 export const SchemaItemType = PropTypes.shape({
   name: PropTypes.string.isRequired,
   size: PropTypes.number,
+  catalog: PropTypes.string,
   loading: PropTypes.bool,
   columns: PropTypes.arrayOf(SchemaItemColumnType).isRequired,
 });
@@ -28,7 +29,8 @@ export const SchemaItemType = PropTypes.shape({
 const schemaTableHeight = 22;
 const schemaColumnHeight = 18;
 
-function SchemaItem({ item, expanded, onToggle, onSelect, ...props }) {
+function SchemaItem({ item, expanded, onToggle, onSelect, onShowTableDetails, ...props }) {
+
   const handleSelect = useCallback(
     (event, ...args) => {
       event.preventDefault();
@@ -52,6 +54,11 @@ function SchemaItem({ item, expanded, onToggle, onSelect, ...props }) {
           <strong>
             <span title={item.name}>{tableDisplayName}</span>
             {!isNil(item.size) && <span> ({item.size})</span>}
+            {item.catalog && (
+              <a onClick={e => onShowTableDetails(item.catalog)} is-link="true">
+                (Table details)
+              </a>
+            )}
           </strong>
         </PlainButton>
         <Tooltip
@@ -103,6 +110,7 @@ SchemaItem.propTypes = {
   expanded: PropTypes.bool,
   onToggle: PropTypes.func,
   onSelect: PropTypes.func,
+  onShowTableDetails: PropTypes.func,
 };
 
 SchemaItem.defaultProps = {
@@ -110,6 +118,7 @@ SchemaItem.defaultProps = {
   expanded: false,
   onToggle: () => {},
   onSelect: () => {},
+  onShowTableDetails: () => {},
 };
 
 function SchemaLoadingState() {
@@ -120,7 +129,7 @@ function SchemaLoadingState() {
   );
 }
 
-export function SchemaList({ loading, schema, expandedFlags, onTableExpand, onItemSelect }) {
+export function SchemaList({ loading, schema, expandedFlags, onTableExpand, onItemSelect, onShowTableDetails }) {
   const [listRef, setListRef] = useState(null);
 
   useEffect(() => {
@@ -156,6 +165,7 @@ export function SchemaList({ loading, schema, expandedFlags, onTableExpand, onIt
                     expanded={expandedFlags[item.name]}
                     onToggle={() => onTableExpand(item.name)}
                     onSelect={onItemSelect}
+                    onShowTableDetails={onShowTableDetails}
                   />
                 );
               }}
@@ -207,6 +217,7 @@ export default function SchemaBrowser({
   dataSource,
   onSchemaUpdate,
   onItemSelect,
+  onShowTableDetails,
   options,
   onOptionsUpdate,
   ...props
@@ -259,6 +270,7 @@ export default function SchemaBrowser({
         expandedFlags={expandedFlags}
         onTableExpand={toggleTable}
         onItemSelect={onItemSelect}
+        onShowTableDetails={onShowTableDetails}
       />
     </div>
   );
@@ -268,10 +280,12 @@ SchemaBrowser.propTypes = {
   dataSource: PropTypes.object, // eslint-disable-line react/forbid-prop-types
   onSchemaUpdate: PropTypes.func,
   onItemSelect: PropTypes.func,
+  onShowTableDetails: PropTypes.func,
 };
 
 SchemaBrowser.defaultProps = {
   dataSource: null,
   onSchemaUpdate: () => {},
   onItemSelect: () => {},
+  onShowTableDetails: () => {},
 };

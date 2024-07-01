@@ -1,4 +1,4 @@
-FROM node:12 as frontend-builder
+FROM node:12 AS frontend-builder
 
 # Controls whether to build the frontend assets
 ARG skip_frontend_build
