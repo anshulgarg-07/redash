@@ -255,6 +255,8 @@ class QueryListResource(BaseQueryListResource):
         query_def["data_source"] = data_source
         query_def["org"] = self.current_org
         query_def["is_draft"] = True
+        if str(data_source.id) in settings.TAG_DATA_SOURCES:
+            query_def['tags'] = settings.AURORA_TAGS
         query = models.Query.create(**query_def)
         models.db.session.add(query)
         models.db.session.commit()

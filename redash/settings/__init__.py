@@ -566,3 +566,17 @@ DATA_CATALOG_DATASET_API = os.environ.get('DATA_CATALOG_DATASET_API', 'http://17
 DATA_CATALOG_ACCESS_KEY = os.environ.get('DATA_CATALOG_ACCESS_KEY','')
 # Link of Datasets at data-catalog.grofers.io
 REDASH_VIEW_CATALOG_LINK = os.environ.get('REDASH_VIEW_CATALOG_LINK', 'https://datahub.eternal.com/dataset/urn:li:dataset:(urn:li:dataPlatform:{data_platform},{full_table_name},PROD)/Schema?schemaFilter=')
+
+# night refresh skip/weekend reduced frequency
+REDASH_NIGHTLY_SKIP = parse_boolean(os.environ.get('REDASH_NIGHTLY_SKIP', 'true'))
+REDASH_REDUCED_WEEKEND_RUNS = parse_boolean(os.environ.get('REDASH_REDUCED_WEEKEND_RUNS', 'true'))
+NIGHT_START = os.environ.get('REDASH_NIGHT_START', '04:30AM')
+NIGHT_END = os.environ.get('REDASH_NIGHT_END', '05:30PM')
+# Decrease the scheduled query execution by this many times
+WEEKEND_FREQUENCY = int(os.environ.get('REDASH_WEEKEND_FREQUENCY', 3))
+# If Schedule Interval of query is more than this limit, do not execute it on weekends at all
+INTERVAL_LIMIT = int(os.environ.get('REDASH_INTERVAL_LIMIT', 14400))
+# Default tags which needs to be applied to a query at creation time
+AURORA_TAGS = array_from_string(os.environ.get("REDASH_AURORA_TAGS", "nightly-skip,reduced-weekend-runs"))
+# Data Source on which default tags shall be applied
+TAG_DATA_SOURCES = array_from_string(os.environ.get("REDASH_TAG_DATA_SOURCES", "1"))

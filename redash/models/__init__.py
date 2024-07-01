@@ -19,8 +19,8 @@ from sqlalchemy_utils.types import TSVectorType
 from sqlalchemy_utils.models import generic_repr
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 
-from redash import redis_connection, utils, settings
-from redash.settings import REDASH_DB_CATALOG_MAPPING, REDASH_VIEW_CATALOG_LINK, DATASOURCE_SECRET_KEY, DEFAULT_SQL_MAX_ROWS_LIMIT, FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT
+from redash import redis_connection, utils, settings, statsd_client
+from redash.settings import REDASH_DB_CATALOG_MAPPING, REDASH_VIEW_CATALOG_LINK, DATASOURCE_SECRET_KEY, DEFAULT_SQL_MAX_ROWS_LIMIT, FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT, INTERVAL_LIMIT, WEEKEND_FREQUENCY, REDASH_REDUCED_WEEKEND_RUNS
 from redash.destinations import (
     get_configuration_schema_for_destination_type,
     get_destination,
@@ -673,17 +673,26 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
                 retrieved_at = scheduled_queries_executions.get(query.id) or (
                     query.latest_query_data and query.latest_query_data.retrieved_at
                 )
+                interval = query.schedule.get("interval")
+                weekend_query = REDASH_REDUCED_WEEKEND_RUNS and query.tags and ("reduced-weekend-runs" in query.tags)
+                day = (utils.utcnow() + datetime.timedelta(hours=5, minutes=30)).weekday()
+                if weekend_query and day >= 5 and interval < INTERVAL_LIMIT:
+                    interval = WEEKEND_FREQUENCY*interval
 
                 if should_schedule_next(
                     retrieved_at or now,
                     now,
-                    query.schedule["interval"],
+                    interval,
                     query.schedule["time"],
                     query.schedule["day_of_week"],
                     query.schedule_failures,
                 ):
                     key = "{}:{}".format(query.query_hash, query.data_source_id)
                     outdated_queries[key] = query
+                elif should_schedule_next(retrieved_at, now, query.schedule['interval'], query.schedule['time'],
+                                      query.schedule['day_of_week'], query.schedule_failures):
+                    logging.info("Query ID: {query_id} refresh skipped due to reduced weekend frequency".
+                             format(query_id=query.id))
             except Exception as e:
                 query.schedule["disabled"] = True
                 db.session.commit()
