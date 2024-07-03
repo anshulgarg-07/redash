@@ -1,0 +1,180 @@
+workDir: "app"
+virtualEnv: "redash-virtualenv"
+consulPath: "dse/redash-reports"
+vaultDatabasePath: "dse/postgres/redash_reports/redash_reports_application_api"
+vaultApplicationPath: "dse/applications/redash_reports"
+grofersIOComponentPrefix: "redash-reports"
+applicationHostName: "reports.grofer.io"
+
+frontend:
+  replicaCount: 5
+  resources:
+    limits:
+      cpu: "3000m"
+      memory: "5Gi"
+    requests:
+      cpu: "1500m"
+      memory: "3Gi"
+
+service:
+  sslCert: arn:aws:acm:ap-southeast-1:442534439095:certificate/99b32022-631f-4a1b-8e5c-71eec0b41d55
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-04625e7cfdf8f5e40
+
+celery:
+  workers:
+  - type: "beat"
+    name: "celerybeat"
+    replicaCount: 1
+    concurrency:
+    queueName:
+    maxTaskPerChild:
+    timeLimit:
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "100m"
+        memory: "0.5Gi"
+  - type: "worker"
+    name: "celerydefault"
+    replicaCount: 3
+    concurrency: 5
+    queueName: "celery"
+    maxTaskPerChild: 10
+    timeLimit: 300
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "2Gi"
+      requests:
+        cpu: "100m"
+        memory: "1Gi"
+  - type: "worker"
+    name: "destinationsync"
+    replicaCount: 1
+    concurrency: 6
+    queueName: "destination_sync"
+    maxTaskPerChild: 10
+    timeLimit: 300
+    resources:
+      limits:
+        cpu: "1"
+        memory: 5Gi
+      requests:
+        cpu: "100m"
+        memory: "3Gi"
+  - type: "worker"
+    name: "celeryqueries"
+    replicaCount: 3
+    concurrency: 4
+    queueName: "queries"
+    maxTaskPerChild: 10
+    timeLimit: 900
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "2Gi"
+      requests:
+        cpu: "150m"
+        memory: "1.5Gi"
+  - type: "worker"
+    name: "celerytrino"
+    replicaCount: 3
+    concurrency: 7
+    queueName: "trino_queries"
+    maxTaskPerChild: 10
+    timeLimit: 600
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "3Gi"
+      requests:
+        cpu: "150m"
+        memory: "2Gi"
+  - type: "worker"
+    name: "celerylr"
+    replicaCount: 3
+    concurrency: 4
+    queueName: "queries_lr"
+    maxTaskPerChild: 10
+    timeLimit: 1500
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "3Gi"
+      requests:
+        cpu: "150m"
+        memory: "2Gi"
+  - type: "worker"
+    name: "celeryqueriesscheduled"
+    replicaCount: 1
+    concurrency: 5
+    queueName: "scheduled_queries"
+    maxTaskPerChild: 10
+    timeLimit: 900
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "2Gi"
+      requests:
+        cpu: "150m"
+        memory: "1.5Gi"
+  - type: "worker"
+    name: "celerytrinoscheduled"
+    replicaCount: 4
+    concurrency: 7
+    queueName: "trino_scheduled_queries"
+    maxTaskPerChild: 10
+    timeLimit: 600
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "3Gi"
+      requests:
+        cpu: "150m"
+        memory: "2Gi"
+  - type: "worker"
+    name: "celerylrscheduled"
+    replicaCount: 4
+    concurrency: 7
+    queueName: "scheduled_queries_lr"
+    maxTaskPerChild: 10
+    timeLimit: 1500
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "3Gi"
+      requests:
+        cpu: "150m"
+        memory: "2Gi"
+  - type: "worker"
+    name: "celerycrmqueries"
+    replicaCount: 1
+    concurrency: 5
+    queueName: "queries_crm"
+    maxTaskPerChild: 10
+    timeLimit: 1500
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "2Gi"
+      requests:
+        cpu: "150m"
+        memory: "1.5Gi"
+  - type: "worker"
+    name: "celerycrmqueriesscheduled"
+    replicaCount: 1
+    concurrency: 5
+    queueName: "scheduled_queries_crm"
+    maxTaskPerChild: 10
+    timeLimit: 1500
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "2Gi"
+      requests:
+        cpu: "150m"
+        memory: "1.5Gi"

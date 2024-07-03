@@ -1,0 +1,53 @@
+workDir: "app"
+virtualEnv: "redash-virtualenv"
+consulPath: "dse/redash-store-ops"
+vaultDatabasePath: "dse/postgres/redash_store_ops/redash_store_application_api"
+vaultApplicationPath: "dse/applications/redash_store_ops"
+grofersIOComponentPrefix: "redash-store-ops"
+applicationHostName: "redash-store-service-data.prod-sgp-k8s.grofer.io"
+
+frontend:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "3000m"
+      memory: "5Gi"
+    requests:
+      cpu: "1500m"
+      memory: "3Gi"
+
+service:
+  sslCert: arn:aws:acm:ap-southeast-1:442534439095:certificate/db7d6285-c5d5-4e8e-b94a-7792bcd03b05
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-0cb74dd3f6cb09e9e"
+
+celery:
+  workers:
+  - type: "beat"
+    name: "celerybeat"
+    replicaCount: 1
+    concurrency:
+    queueName:
+    maxTaskPerChild:
+    timeLimit:
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "100m"
+        memory: "0.5Gi"
+  - type: "worker"
+    name: "celerydefault"
+    replicaCount: 1
+    concurrency: 1
+    queueName: "celery,queries,scheduled_queries,destination_sync"
+    maxTaskPerChild: 10
+    timeLimit: 300
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "100m"
+        memory: "0.5Gi"

@@ -1,0 +1,49 @@
+workDir:
+virtualEnv:
+consulPath:
+vaultDatabasePath:
+grofersIOComponentPrefix:
+vaultApplicationPath:
+applicationHostName:
+
+frontend:
+  replicaCount: 1
+  resources: {}
+
+service:
+  sslCert:
+  annotations: {}
+
+celery:
+  flower:
+    enabled: false
+    resources: {}
+  workers:
+  - type: beat
+    name: celerybeat
+    replicaCount: 0
+    concurrency:
+    queueName:
+    maxTaskPerChild: 10
+    timeLimit: 100
+    resources: {}
+  - type: worker
+    name: celerydefault
+    replicaCount: 0
+    concurrency: 1
+    queueName: celery
+    maxTaskPerChild: 10
+    timeLimit: 100
+    resources: {}
+
+## Node labels for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+nodeSelector: {}
+
+## Taints to tolerate on node assignment:
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+tolerations: []
+
+## Pod scheduling constraints
+## Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+affinity: {}

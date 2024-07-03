@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name -}}-appserver
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $.Release.Name -}}-appserver
+    component: {{ $.Release.Name -}}-appserver
+    grofers.io/service: redash
+    grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-webserver
+    grofers.io/component-role: data-visualization
+    grofers.io/business-service: data-reporting
+    grofers.io/team: data-engineering
+    grofers.io/tribe: data
+
+spec:
+  replicas: {{ $.Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      pod: {{ $.Release.Name -}}-appserver
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 20%
+      maxUnavailable: 0%
+
+  template:
+    metadata:
+      labels:
+        pod: {{ $.Release.Name -}}-appserver
+        app: {{ $.Release.Name -}}-appserver
+        component: {{ $.Release.Name -}}-appserver
+        grofers.io/service: redash
+        grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-webserver
+        grofers.io/component-role: data-visualization
+        grofers.io/business-service: data-reporting
+        grofers.io/team: data-engineering
+        grofers.io/tribe: data
+    spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "2"
+      initContainers:
+      - name: consul-template
+        image: 442534439095.dkr.ecr.ap-southeast-1.amazonaws.com/infra/consul-template:v1.0.0
+        env:
+        - name: CONSUL_ADDR
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        args: [
+            '-template', '/config-template/env.ctml:/config/.env',
+            '-once',
+            # '-log-level=trace',
+          ]
+        volumeMounts:
+        - name: {{ $.Release.Name -}}-configmap
+          mountPath: /config-template
+        - name: {{ $.Release.Name -}}-config
+          mountPath: /config
+      containers:
+      - name: appserver
+        image: {{ $.Values.image }}
+        command: ['bin/run', '/{{- $.Values.workDir -}}/{{- $.Values.virtualEnv -}}/bin/gunicorn', '-b', '0.0.0.0:5000', '--name', 'redash', '-w10', 'redash.wsgi:app', '--max-requests', '1000', '--max-requests-jitter', '100']
+        resources:
+{{ toYaml $.Values.frontend.resources | indent 10 }}
+        volumeMounts:
+        - name: {{ $.Release.Name -}}-config
+          mountPath: /{{- $.Values.workDir -}}/.env
+          subPath: .env
+        env:
+          - name: REDASH_STATSD_HOST
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+      - image: nginx:1.14
+        name: nginx
+        ports:
+        - name: "nginx-port"
+          containerPort: 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "100Mi"
+          limits:
+            cpu: "200m"
+            memory: "400Mi"
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: nginx-port
+          initialDelaySeconds: 15
+          timeoutSeconds: 2
+          periodSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: nginx-port
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+          periodSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: {{ $.Release.Name -}}-configmap
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: nginx.conf
+          readOnly: true
+      volumes:
+      - name: {{ $.Release.Name -}}-configmap
+        configMap:
+          name: {{ $.Release.Name -}}-configmap
+      - name: {{ $.Release.Name -}}-config
+        emptyDir: {}
+      {{- if $.Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml $.Values.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if $.Values.tolerations }}
+      tolerations:
+{{ toYaml $.Values.tolerations | indent 8 }}
+      {{- end }}
+      {{- if $.Values.affinity }}
+      affinity:
+{{ toYaml $.Values.affinity | indent 8 }}
+      {{- end }}

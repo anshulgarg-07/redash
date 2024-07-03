@@ -1,0 +1,98 @@
+{{- range .Values.celery.workers }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name -}}-{{- .name}}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $.Release.Name -}}-{{- .name}}
+    component: {{ $.Release.Name -}}-taskserver
+    grofers.io/service: redash
+    grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-celery-worker
+    grofers.io/component-role: data-processing
+    grofers.io/business-service: data-reporting
+    grofers.io/team: data-engineering
+    grofers.io/tribe: data
+
+spec:
+  replicas: {{ .replicaCount }}
+  selector:
+    matchLabels:
+      pod: {{ $.Release.Name -}}-{{- .name}}
+  template:
+    metadata:
+      labels:
+        pod: {{ $.Release.Name -}}-{{- .name}}
+        app: {{ $.Release.Name -}}-{{- .name}}
+        component: {{ $.Release.Name -}}-taskserver
+        grofers.io/service: redash
+        grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-celery-worker
+        grofers.io/component-role: data-processing
+        grofers.io/business-service: data-reporting
+        grofers.io/team: data-engineering
+        grofers.io/tribe: data
+    spec:
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "2"
+      initContainers:
+      - name: consul-template
+        image: 442534439095.dkr.ecr.ap-southeast-1.amazonaws.com/infra/consul-template:v1.0.0
+        env:
+        - name: CONSUL_ADDR
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        args: [
+            '-template', '/config-template/env.ctml:/config/.env',
+            '-once',
+            # '-log-level=trace',
+          ]
+        volumeMounts:
+        - name: {{ $.Release.Name -}}-configmap
+          mountPath: /config-template
+        - name: {{ $.Release.Name -}}-config
+          mountPath: /config
+      containers:
+      - name: {{ $.Release.Name -}}-{{- .name}}
+        image: {{ $.Values.image }}
+        {{- if eq .type "beat" }}
+        command: ['bin/run', '/{{- $.Values.workDir -}}/{{- $.Values.virtualEnv -}}/bin/celery', 'beat', '--app=redash.worker', '--loglevel=INFO']
+        {{- else if eq .type "worker" }}
+        command: ['bin/run', '/{{- $.Values.workDir -}}/{{- $.Values.virtualEnv -}}/bin/celery', 'worker', '--app=redash.worker', '-c{{- .concurrency -}}', '-Q{{- .queueName -}}', '--maxtasksperchild={{- .maxTaskPerChild -}}', '--time-limit={{- .timeLimit -}}', '-Ofair', '--loglevel=INFO']
+        {{- end }}
+        resources:
+{{ toYaml .resources | indent 10 }}
+        volumeMounts:
+        - name: {{ $.Release.Name -}}-config
+          mountPath: /{{- $.Values.workDir -}}/.env
+          subPath: .env
+        env:
+          - name: REDASH_STATSD_HOST
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
+      volumes:
+      - name: {{ $.Release.Name -}}-configmap
+        configMap:
+          name: {{ $.Release.Name -}}-configmap
+      - name: {{ $.Release.Name -}}-config
+        emptyDir: {}
+      {{- if $.Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml $.Values.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if $.Values.tolerations }}
+      tolerations:
+{{ toYaml $.Values.tolerations | indent 8 }}
+      {{- end }}
+      {{- if $.Values.affinity }}
+      affinity:
+{{ toYaml $.Values.affinity | indent 8 }}
+      {{- end }}
+---
+{{- end }}
