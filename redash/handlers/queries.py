@@ -406,6 +406,7 @@ class QueryResource(BaseResource):
 
         result = QuerySerializer(q, with_visualizations=True).serialize()
         result["can_edit"] = can_modify(q, self.current_user)
+        result["banner_text"] = settings.TOP_BANNER_TEXT
 
         self.record_event(
             {"action": "view", "object_id": query_id, "object_type": "query"}

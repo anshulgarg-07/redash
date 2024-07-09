@@ -1,5 +1,5 @@
 import { isEmpty, map } from "lodash";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import PropTypes from "prop-types";
 import cx from "classnames";
 
@@ -21,6 +21,7 @@ import useImmutableCallback from "@/lib/hooks/useImmutableCallback";
 
 import useDashboard from "./hooks/useDashboard";
 import DashboardHeader from "./components/DashboardHeader";
+import { ApplicationLayoutContext } from "@/components/ApplicationArea/ApplicationLayout";
 
 import "./DashboardPage.less";
 
@@ -150,7 +151,7 @@ function DashboardComponent(props) {
           widgets={dashboard.widgets}
           filters={filters}
           isEditing={editingLayout}
-          onLayoutChange={editingLayout ? saveDashboardLayout : () => {}}
+          onLayoutChange={editingLayout ? saveDashboardLayout : () => { }}
           onBreakpointChange={setGridDisabled}
           onLoadWidget={loadWidget}
           onRefreshWidget={refreshWidget}
@@ -172,20 +173,21 @@ DashboardComponent.propTypes = {
 function DashboardPage({ dashboardSlug, dashboardId, onError }) {
   const [dashboard, setDashboard] = useState(null);
   const handleError = useImmutableCallback(onError);
+  const { setBannerText } = useContext(ApplicationLayoutContext)
 
   useEffect(() => {
     Dashboard.get({ id: dashboardId, slug: dashboardSlug })
       .then(dashboardData => {
         recordEvent("view", "dashboard", dashboardData.id);
         setDashboard(dashboardData);
-
+        setBannerText(dashboardData.banner_text)
         // if loaded by slug, update location url to use the id
         if (!dashboardId) {
           location.setPath(url.parse(dashboardData.url).pathname, true);
         }
       })
       .catch(handleError);
-  }, [dashboardId, dashboardSlug, handleError]);
+  }, [dashboardId, dashboardSlug, handleError, setBannerText]);
 
   return <div className="dashboard-page">{dashboard && <DashboardComponent dashboard={dashboard} />}</div>;
 }
