@@ -59,10 +59,14 @@ function DetailsComponent(props) {
           }
         </p>
       </div>
-      <div key="last_refresh" className="details-component">
-        <h5>Last refresh</h5>
-        <p>{moment(details.lastRefresh).format('YYYY-MM-DD hh:mm A')} IST ({moment(details.lastRefresh).fromNow()})</p>
-      </div>
+      {
+        details.lastRefresh ? (
+          <div key="last_refresh" className="details-component">
+            <h5>Last refresh</h5>
+            <p>{moment(details.lastRefresh).format('YYYY-MM-DD hh:mm A')} IST ({moment(details.lastRefresh).fromNow()})</p>
+          </div>
+        ) : null
+      }
       <div key="partition_keys" className="details-component">
         <h5>Partition Key(s)</h5>
         <p>{details.partitionKeys || 'Not Applicable'}</p>

@@ -426,6 +426,7 @@ default_destinations = [
     "redash.destinations.chatwork",
     "redash.destinations.pagerduty",
     "redash.destinations.hangoutschat",
+    "redash.destinations.gsheets",
 ]
 
 enabled_destinations = array_from_string(
@@ -582,3 +583,8 @@ INTERVAL_LIMIT = int(os.environ.get('REDASH_INTERVAL_LIMIT', 14400))
 AURORA_TAGS = array_from_string(os.environ.get("REDASH_AURORA_TAGS", "nightly-skip,reduced-weekend-runs"))
 # Data Source on which default tags shall be applied
 TAG_DATA_SOURCES = array_from_string(os.environ.get("REDASH_TAG_DATA_SOURCES", "1"))
+# Sync to Destination
+REDASH_GOOGLE_SHEET_API_CONFIG = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_API_CONFIG', '{}'))
+REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS', '{}'))
+REDASH_GOOGLE_SHEET_CLIENT_MAPPING = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_CLIENT_MAPPING', '{}'))
+REDASH_SYNC_TIME_LIMIT = int(os.environ.get('REDASH_SYNC_TIME_LIMIT', 60))

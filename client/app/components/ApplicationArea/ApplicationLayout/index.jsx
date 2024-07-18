@@ -25,11 +25,6 @@ export default function ApplicationLayout({ children }) {
             </DynamicComponent>
           </div>
           <div className="application-layout-content">
-            {/* <div style={{ background: "#E9F7F8", padding: "10px", textAlign: "center" }}>
-              <span style={{ color: '#000', fontFamily: 'Verdana', fontWeight: '510' }}>
-                Redshift has been deprecated on redash-queries & reports.
-              </span>
-            </div> */}
             {!isEmpty(bannerText) && (
               <TopBanner message={bannerText} />
             )}

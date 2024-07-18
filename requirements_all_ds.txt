@@ -1,5 +1,5 @@
 google-api-python-client==1.7.11
-gspread==3.1.0
+gspread==3.7.0
 impyla==0.16.0
 pyarrow>=3.0.0
 mysqlclient>=1.4
@@ -18,4 +18,4 @@ trino~=0.305
 cmem-cmempy==21.2.3
 xlrd==2.0.1
 openpyxl==3.0.7
-greenlet==0.4.16
+greenlet==1.1.2

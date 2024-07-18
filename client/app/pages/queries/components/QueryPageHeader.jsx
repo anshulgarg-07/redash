@@ -23,6 +23,7 @@ import useApiKeyDialog from "../hooks/useApiKeyDialog";
 import usePermissionsEditorDialog from "../hooks/usePermissionsEditorDialog";
 
 import "./QueryPageHeader.less";
+import useOpenDestinationsEditor from "../hooks/useOpenDestinationsEditor";
 
 function getQueryTags() {
   return getTags("api/queries/tags").then(tags => map(tags, t => t.name));
@@ -77,6 +78,7 @@ export default function QueryPageHeader({
   const updateTags = useUpdateQueryTags(query, onChange);
   const archiveQuery = useArchiveQuery(query, onChange);
   const publishQuery = usePublishQuery(query, onChange);
+  const openDestinationsEditor = useOpenDestinationsEditor(query, onChange);
   const unpublishQuery = useUnpublishQuery(query, onChange);
   const [isDuplicating, duplicateQuery] = useDuplicateQuery(query);
   const openApiKeyDialog = useApiKeyDialog(query, onChange);
@@ -170,6 +172,11 @@ export default function QueryPageHeader({
         </div>
       </div>
       <div className="header-actions">
+        {!queryFlags.isArchived && !queryFlags.isNew && queryFlags.canViewSource && (
+          <Button className="m-r-5" onClick={openDestinationsEditor}>
+            <i className="fa fa-file-excel-o m-r-5" aria-hidden="true" /> Destinations
+          </Button>
+        )}
         {headerExtra}
         {isDesktop && queryFlags.isDraft && !queryFlags.isArchived && !queryFlags.isNew && queryFlags.canEdit && (
           <Button className="m-r-5" onClick={publishQuery}>

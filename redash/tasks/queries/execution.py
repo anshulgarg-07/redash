@@ -11,8 +11,9 @@ from redash import models, redis_connection, settings, redis_ro_connection
 from redash.query_runner import InterruptException
 from redash.tasks.worker import Queue, Job
 from redash.tasks.alerts import check_alerts_for_query
+from redash.tasks.destinations import enqueue_destination
 from redash.tasks.failure_report import track_failure
-from redash.utils import gen_query_hash, json_dumps, utcnow, json_loads
+from redash.utils import gen_query_hash, utcnow, json_loads
 from redash.worker import get_job_logger
 
 logger = get_job_logger(__name__)
@@ -78,7 +79,7 @@ def enqueue_query(
                     if job_complete:
                         message = "job found is complete (%s)" % status
                     elif job_cancelled:
-                        message = "job found has ben cancelled"
+                        message = "job found has been cancelled"
                 except NoSuchJobError:
                     message = "job found has expired"
                     job_exists = False
@@ -255,6 +256,14 @@ class QueryExecutor(object):
             updated_query_ids = models.Query.update_latest_result(query_result)
 
             models.db.session.commit()  # make sure that alert sees the latest query result
+            # Only send to destination when query is scheduled
+            if self.scheduled_query:
+                destinations = models.Destination.all(query=self.scheduled_query)
+                for destination in destinations:
+                    self._log_progress('syncing results to destination id: {d}'.format(d=destination.id))
+                    enqueue_destination(destination_id=destination.id, user_id=self.user.id, sync_type="SCHEDULED")
+                    self._log_progress('finished')
+
             if settings.ENABLE_ALERTS:
                 self._log_progress('checking_alerts')
                 for query_id in updated_query_ids:
@@ -269,6 +278,10 @@ class QueryExecutor(object):
         self.metadata["Job ID"] = self.job.id
         self.metadata["Query Hash"] = self.query_hash
         self.metadata["Scheduled"] = self.is_scheduled_query
+        if self.metadata.get('Query ID', 'adhoc') != 'adhoc':
+            self.metadata['Query Link'] = "https://{url}/queries/{id}".format(
+                url=settings.HOST, id=self.metadata['Query ID']
+            )
 
         return query_runner.annotate_query(query, self.metadata)
 

@@ -4,6 +4,7 @@ import logging
 import time
 import numbers
 import pytz
+import json
 
 from typing import List, Union
 
@@ -18,6 +19,7 @@ from sqlalchemy_utils import generic_relationship
 from sqlalchemy_utils.types import TSVectorType
 from sqlalchemy_utils.models import generic_repr
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
+from six import text_type
 
 from redash import redis_connection, utils, settings, statsd_client
 from redash.settings import REDASH_DB_CATALOG_MAPPING, REDASH_VIEW_CATALOG_LINK, DATASOURCE_SECRET_KEY, DEFAULT_SQL_MAX_ROWS_LIMIT, FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT, INTERVAL_LIMIT, WEEKEND_FREQUENCY, REDASH_REDUCED_WEEKEND_RUNS
@@ -1435,6 +1437,143 @@ class NotificationDestination(BelongsToOrgMixin, db.Model):
             alert, query, user, new_state, app, host, self.options
         )
 
+@generic_repr('id', 'synced_at', 'sync_type', 'sync_duration', 'user_id', 'status')
+class DestinationSyncHistory(BelongsToOrgMixin, db.Model):
+    id = Column(db.Integer, primary_key=True)
+    synced_at = Column(db.DateTime(True), default=db.func.now())
+    sync_type = Column(db.String(255))
+    sync_duration = Column(db.Integer)
+    destination_id = Column(db.Integer)
+    user_id = Column(db.Integer, db.ForeignKey("users.id"))
+    status = Column(db.String(255))
+    error_log = Column(db.Text, nullable=True)
+
+    __tablename__ = 'destination_sync_history'
+
+    def __str__(self):
+        return u"%d | %d | %s" % (self.id, self.destination_id, self.status)
+
+    @classmethod
+    def store_result(cls, synced_at, sync_type, sync_duration, destination_id, user_id, status, error_log, rows, columns):
+        destination_sync = cls(synced_at=synced_at,
+                            sync_type=sync_type,
+                            sync_duration=sync_duration,
+                            destination_id=destination_id,
+                            user_id=user_id,
+                            status=status,
+                            error_log=error_log)
+        db.session.add(destination_sync)
+        logging.info("Inserted sync job (%s) data; id=%s", destination_id, destination_sync.id)
+        destination = Destination.query.get(destination_id)
+        destination.last_destination_sync = destination_sync
+        destination.options["last_sync_rows"] = rows
+        destination.options["last_sync_columns"] = columns
+        # don't auto-update the updated_at timestamp
+        destination.skip_updated_at = True
+        db.session.add(destination)
+        logging.info("Updated destination (destination_id: %s) with sync details (%s).",
+                    destination_id, destination_sync.id)
+
+@generic_repr('id', 'name', 'type', 'visualization_id', 'user_id', 'last_modified_by_id', 'is_archived', 'options', 'last_destination_sync_id', 'created_at', 'updated_at')
+class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
+    id = Column(db.Integer, primary_key=True)
+    name = Column(db.String(255))
+    type = Column(db.String(255))
+    visualization_id = Column(db.Integer, db.ForeignKey("visualizations.id"))
+    user_id = Column(db.Integer, db.ForeignKey("users.id"))
+    user = db.relationship(User, foreign_keys=[user_id], lazy='select')
+    last_modified_by_id = Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    last_modified_by = db.relationship(User, backref="modified_destinations",
+                                       foreign_keys=[last_modified_by_id], lazy='select')
+    is_archived = Column(db.Boolean, default=False, index=True)
+    options = Column(ConfigurationContainer.as_mutable(Configuration))
+    last_destination_sync_id = Column(db.Integer, db.ForeignKey("destination_sync_history.id"), nullable=True)
+    last_destination_sync = db.relationship(DestinationSyncHistory, foreign_keys=[last_destination_sync_id])
+
+    __tablename__ = 'destinations'
+
+    def __str__(self):
+            return text_type(self.name)
+
+    @property
+    def destination(self):
+        return get_destination(self.type, self.options)
+
+    @classmethod
+    def get_by_id_and_org(cls, object_id, visualization, org):
+        destination = Destination.query.filter(Destination.id == object_id).filter(Destination.is_archived == False).one()
+        # TODO: Figure out if we can link it with org_id
+        # destination =  super(Destination, cls).get_by_id_and_org(object_id, org, Query)
+        if destination.visualization_id == visualization.id:
+            return destination
+        else:
+            raise ValueError
+
+    @classmethod
+    def all(cls, query=None, visualization=None):
+        if visualization:
+            destination_ids = (
+                        db.session
+                        .query(distinct(cls.id))
+                        .join(
+                            Visualization,
+                            Destination.visualization_id == Visualization.id
+                        ).filter(Visualization.id == visualization.id)
+                        .filter(Destination.is_archived == False)
+                    )
+            destinations = cls.query.filter(cls.id.in_(destination_ids)).order_by(cls.id.asc())
+        elif query:
+            visualization_ids = (
+                db.session
+                .query(Visualization.id)
+                .filter(Visualization.query_id == query.id)
+            )
+            destination_ids = (
+                        db.session
+                        .query(distinct(cls.id))
+                        .join(
+                            Visualization,
+                            Destination.visualization_id == Visualization.id
+                        ).filter(Visualization.id.in_(visualization_ids))
+                        .filter(Destination.is_archived == False)
+                    )
+            destinations = cls.query.filter(cls.id.in_(destination_ids)).order_by(cls.id.asc())
+        else:
+            raise ValueError
+            #TODO : return destinations as paginated results ?
+        return destinations
+
+    def sync(self, user_id, sync_type):
+        schema = get_configuration_schema_for_destination_type(self.type)
+        self.options.set_schema(schema)
+        user = User.query.filter(User.id == user_id).first()
+        visualization = Visualization.query.filter(Visualization.id == self.visualization_id).first()
+        query_id = visualization.query_id
+        query_result = visualization.query_rel.latest_query_data.data
+        query_result = json.loads(query_result)
+        rows = len(query_result['rows'])
+        columns = len(query_result['columns'])
+        started_at = time.time()
+        google_apps_domains = Organization.query.filter(Organization.id == 1).first().settings["google_apps_domains"]
+        logging.info("Syncing destination ID: %s", self.id)
+        error = self.destination.sync_visualization(query_result=query_result,
+                                                    options=self.options, user_email=user.email, query_id=query_id, allowed_emails=google_apps_domains)
+        sync_duration = time.time() - started_at
+
+        DestinationSyncHistory.store_result(
+            synced_at=utils.utcnow(),
+            sync_type=sync_type,
+            sync_duration=sync_duration,
+            destination_id=self.id,
+            user_id=user_id,
+            status="failed" if error else "finished",
+            error_log=error,
+            rows=self.options.get('last_sync_rows') if error else rows,
+            columns=self.options.get('last_sync_columns') if error else columns
+        )
+        db.session.commit()
+
+        return error
 
 @generic_repr("id", "user_id", "destination_id", "alert_id")
 class AlertSubscription(TimestampMixin, db.Model):
