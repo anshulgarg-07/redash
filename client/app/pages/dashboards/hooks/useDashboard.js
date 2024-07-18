@@ -128,7 +128,7 @@ function useDashboard(dashboardData) {
   dashboardRef.current = dashboard;
 
   const loadDashboard = useCallback(
-    (forceRefresh = dashboard.settings.should_force_refresh_on_load, updatedParameters = []) => {
+    (forceRefresh = canRefreshDashboard, updatedParameters = []) => {
       const affectedWidgets = getAffectedWidgets(dashboardRef.current.widgets, updatedParameters);
       const loadWidgetPromises = compact(
         affectedWidgets.map(widget => loadWidget(widget, forceRefresh).catch(error => error))
@@ -210,7 +210,7 @@ function useDashboard(dashboardData) {
   useEffect(() => {
     setDashboard(dashboardData);
     loadDashboard();
-  }, [dashboardData, dashboard.settings.should_force_refresh_on_load]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dashboardData, canRefreshDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     document.title = dashboard.name;
@@ -223,7 +223,7 @@ function useDashboard(dashboardData) {
     } else {
       alert(getDashboardRestrictedRefreshAlertMessage)
     }
-  }, [dashboard.dashboard_filters_enabled, dashboard.settings.should_force_refresh_on_load]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dashboard.dashboard_filters_enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     dashboard,
