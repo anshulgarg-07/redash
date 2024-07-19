@@ -140,7 +140,7 @@ function useDashboard(dashboardData) {
         setFilters(updatedFilters);
       });
     },
-    [loadWidget, dashboard]
+    [canRefreshDashboard, loadWidget]
   );
 
   const refreshDashboard = useCallback(

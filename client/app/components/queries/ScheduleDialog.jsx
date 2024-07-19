@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import PropTypes from "prop-types";
 import Modal from "antd/lib/modal";
-import DatePicker from "antd/lib/date-picker";
 import TimePicker from "antd/lib/time-picker";
 import Select from "antd/lib/select";
 import Radio from "antd/lib/radio";
@@ -165,7 +164,7 @@ class ScheduleDialog extends React.Component {
   };
 
   setUntilToggle = e => {
-    const date = e.target.value ? moment().format(DATE_FORMAT) : null;
+    const date = e.target.value ? moment().add(e.target.value, "days").format(DATE_FORMAT) : null;
     this.setScheduleUntil(null, date);
   };
 
@@ -252,24 +251,20 @@ class ScheduleDialog extends React.Component {
             </div>
           </div>
         ) : null}
+        {((interval !== IntervalEnum.NEVER) && until) ? (
+          <div>
+            <h5>This query will expire on <span style={{ color: 'red' }}>{until}</span><br />Extend schedule for next</h5>
+          </div>
+        ) : null}
         {interval !== IntervalEnum.NEVER ? (
           <div className="schedule-component">
-            <h5>Ends</h5>
             <div className="ends" data-testid="ends">
-              <Radio.Group size="medium" value={!!until} onChange={this.setUntilToggle}>
-                <Radio value={false}>Never</Radio>
-                <Radio value>On</Radio>
+              <Radio.Group size="medium" defaultValue={!!until} onChange={this.setUntilToggle}>
+                <Radio value={false} disabled>Never</Radio>
+                <Radio value={15}>15 Days</Radio>
+                <Radio value={30}>30 Days</Radio>
+                <Radio value={90}>90 Days</Radio>
               </Radio.Group>
-              {until ? (
-                <DatePicker
-                  size="small"
-                  className="datepicker"
-                  value={moment(until)}
-                  allowClear={false}
-                  format={DATE_FORMAT}
-                  onChange={this.setScheduleUntil}
-                />
-              ) : null}
             </div>
           </div>
         ) : null}

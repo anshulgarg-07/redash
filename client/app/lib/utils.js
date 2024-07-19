@@ -8,7 +8,6 @@ export const IntervalEnum = {
   HOURS: "hour",
   DAYS: "day",
   WEEKS: "week",
-  MILLISECONDS: "millisecond",
 };
 
 export const AbbreviatedTimeUnits = {
