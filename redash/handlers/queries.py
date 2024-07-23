@@ -407,6 +407,7 @@ class QueryResource(BaseResource):
         result = QuerySerializer(q, with_visualizations=True).serialize()
         result["can_edit"] = can_modify(q, self.current_user)
         result["banner_text"] = settings.TOP_BANNER_TEXT
+        result['is_destination_sync_enabled'] = settings.DESTINATION_SYNC_ENABLED
 
         self.record_event(
             {"action": "view", "object_id": query_id, "object_type": "query"}

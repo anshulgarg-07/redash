@@ -3,7 +3,6 @@ import logging
 import json
 from gspread.exceptions import APIError
 from google.oauth2.service_account import Credentials
-from six import text_type
 from redash import settings
 from redash.utils import extract_company
 
@@ -23,7 +22,7 @@ class GspreadClient(object):
         self.sheet_name = sheet_name
         self.allowed_emails = allowed_emails
         self.clear_cache = clear_cache
-        
+
     def owner_domain(self):
         for permission in self.all_permissions:
             if permission["role"] == "owner":
@@ -53,10 +52,10 @@ class GspreadClient(object):
             raise Exception("Please make sure you have edit access to the sheet or ask "
             "someone with edit access to send data to the sheet")
         return sh
-    
+
     def handle_errors(self, e):
         raise e
-    
+
 
 class DelegatedGspreadClient(GspreadClient):
     def __init__(self, *args, **kwargs):
@@ -73,7 +72,6 @@ class DelegatedGspreadClient(GspreadClient):
             self.gc = self._cached_client()
         except KeyError:
             cred_dict = settings.REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS.get(extract_company(self.user_email))
-            logging.info(f"the cred_dict is {json.dump(cred_dict)}")
             credentials = Credentials.from_service_account_info(cred_dict, scopes=SCOPES)
             delegated_credentials = credentials.with_subject(self.user_email)
             self.gc = gspread.Client(auth=delegated_credentials)
@@ -126,7 +124,6 @@ def ClientFactory(option="service_account"):
     if option not in options.keys():
         raise Exception("{option} is not a supported client creation option. Supported options: {options}. Please reach out to the Administrator!"
             .format(option=option, options=options.keys()))
-
     return options[option]
 
 
@@ -139,9 +136,10 @@ def get_gsheet(user_email, sheet_id, sheet_name, allowed_emails, clear_cache=Fal
             allowed_emails=allowed_emails,
             clear_cache=clear_cache
         )
+        logging.info(f"the client in get_gsheet is {client}")
         gc = client.get()
     except Exception as e:
-        logging.warn("Error: {e}".format(e=text_type(e)))
+        logging.warn("Error: {e}".format(e=str(e)))
         raise Exception("There was some issue while creating the gspread client. Please try again or reach out to the administrator")
     try:
         sh = client.get_gsheet()
@@ -152,6 +150,6 @@ def get_gsheet(user_email, sheet_id, sheet_name, allowed_emails, clear_cache=Fal
             wb = gc.open_by_key(sheet_id)
             sh = wb.worksheet(sheet_name)
         else:
-            logging.warn("Error: {e}".format(e=text_type(e)))
+            logging.warn("Error: {e}".format(e=str(e)))
             client.handle_errors(e)
     return sh

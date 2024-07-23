@@ -172,7 +172,7 @@ export default function QueryPageHeader({
         </div>
       </div>
       <div className="header-actions">
-        {!queryFlags.isArchived && !queryFlags.isNew && queryFlags.canViewSource && (
+        {queryFlags.isDestinationSyncEnabled && !queryFlags.isArchived && !queryFlags.isNew && queryFlags.canViewSource && (
           <Button className="m-r-5" onClick={openDestinationsEditor}>
             <i className="fa fa-file-excel-o m-r-5" aria-hidden="true" /> Destinations
           </Button>

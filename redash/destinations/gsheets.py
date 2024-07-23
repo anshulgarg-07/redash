@@ -8,8 +8,6 @@ from redash.destinations import BaseDestination, register
 from redash.tasks.destinations import signal_handler
 from redash.utils.gsheets import get_gsheet
 from redash import settings, utils
-from six import text_type
-
 
 class Gsheets(BaseDestination):
     visualization_enabled = True
@@ -40,14 +38,14 @@ class Gsheets(BaseDestination):
                 },
                 "last_sync_rows": {
                     "anyOf": [
-                      {"type": "number"},
-                      {"type": "null"}
+                        {"type": "number"},
+                        {"type": "null"}
                     ]
                 },
                 "last_sync_columns": {
                     "anyOf": [
-                      {"type": "number"},
-                      {"type": "null"}
+                        {"type": "number"},
+                        {"type": "null"}
                     ]
                 }
             },
@@ -69,7 +67,6 @@ class Gsheets(BaseDestination):
                 allowed_emails=allowed_emails,
                 clear_cache=True
             )
-            query_result = json.loads(query_result)
             data = [[column['friendly_name'] for column in query_result["columns"]]]
             for result in query_result["rows"]:
                 row = []
@@ -77,7 +74,7 @@ class Gsheets(BaseDestination):
                     val = result[column['friendly_name']]
                     # If data is NULL destination cell shall be empty
                     val = '' if val is None else val
-                    row.append(val.encode('utf-8') if isinstance(val, unicode) else str(val))
+                    row.append(val.encode('utf-8') if isinstance(val, str) else str(val))
                 data.append(row)
 
             error = None
@@ -109,20 +106,21 @@ class Gsheets(BaseDestination):
                     url=settings.HOST,
                     id=query_id,
                     email=user_email,
-                    sync_time=(utils.utcnow()+timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+                    sync_time=(utils.utcnow() + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
                 )
             )
         except WorksheetNotFound as e:
-            logging.warn("Error: {e}".format(e=text_type(e)))
+            logging.warning("Error: {e}".format(e=str(e)))
             error = (u"No worksheet with name: {name} exists. Please make sure you input the correct sheet name"
-                        .format(name=e.message))
+                     .format(name=e.message))
         except APIError as e:
-            logging.warn("Error: {e}".format(e=text_type(e)))
-            error = text_type(e.message["message"])
+            logging.warning("Error: {e}".format(e=str(e)))
+            error = str(e.message["message"])
         except Exception as e:
-            logging.warn("Error: {e}".format(e=text_type(e)))
-            error = text_type(e)
+            logging.warning("Error: {e}".format(e=str(e)))
+            error = str(e)
 
         return error
+
 
 register(Gsheets)

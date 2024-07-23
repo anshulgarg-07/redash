@@ -73,4 +73,8 @@ export default class DefaultPolicy {
   canRun() {
     return true;
   }
+
+  isDestinationSyncEnabled(object) {
+    return get(object, "is_destination_sync_enabled", false)
+  }
 }

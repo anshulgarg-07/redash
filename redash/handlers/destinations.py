@@ -250,7 +250,6 @@ class VizDestinationListResource(BaseResource):
             query = get_object_or_404(models.Query.get_by_id_and_org, query_id, self.current_org)
         if visualization_id:
             visualization = get_object_or_404(models.Visualization.get_by_id_and_org, visualization_id, self.current_org)
-
         try:
             destinations = models.Destination.all(query=query, visualization=visualization)
         except ValueError:
@@ -269,7 +268,7 @@ class VizDestinationListResource(BaseResource):
             'object_type': 'viz_destination',
         })
 
-        return {"status": 200, "destinations": response.values()}
+        return {"status": 200, "destinations": list(response.values())}
 
     @require_permission('edit_query')
     def post(self, visualization_id=None):

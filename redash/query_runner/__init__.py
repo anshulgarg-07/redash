@@ -7,7 +7,6 @@ import socket
 import ipaddress
 from urllib.parse import urlparse
 
-from six import text_type
 from sshtunnel import open_tunnel
 from redash import settings, utils
 from redash.utils import json_loads, query_is_select_no_limit, add_limit_to_query

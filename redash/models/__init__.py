@@ -4,7 +4,6 @@ import logging
 import time
 import numbers
 import pytz
-import json
 
 from typing import List, Union
 
@@ -19,7 +18,6 @@ from sqlalchemy_utils import generic_relationship
 from sqlalchemy_utils.types import TSVectorType
 from sqlalchemy_utils.models import generic_repr
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
-from six import text_type
 
 from redash import redis_connection, utils, settings, statsd_client
 from redash.settings import REDASH_DB_CATALOG_MAPPING, REDASH_VIEW_CATALOG_LINK, DATASOURCE_SECRET_KEY, DEFAULT_SQL_MAX_ROWS_LIMIT, FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT, INTERVAL_LIMIT, WEEKEND_FREQUENCY, REDASH_REDUCED_WEEKEND_RUNS
@@ -1493,7 +1491,7 @@ class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
     __tablename__ = 'destinations'
 
     def __str__(self):
-            return text_type(self.name)
+            return str(self.name)
 
     @property
     def destination(self):
@@ -1522,7 +1520,7 @@ class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
                         .filter(Destination.is_archived == False)
                     )
             destinations = cls.query.filter(cls.id.in_(destination_ids)).order_by(cls.id.asc())
-        elif query:
+        elif query is not None:
             visualization_ids = (
                 db.session
                 .query(Visualization.id)
@@ -1550,11 +1548,10 @@ class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
         visualization = Visualization.query.filter(Visualization.id == self.visualization_id).first()
         query_id = visualization.query_id
         query_result = visualization.query_rel.latest_query_data.data
-        query_result = json.loads(query_result)
         rows = len(query_result['rows'])
         columns = len(query_result['columns'])
         started_at = time.time()
-        google_apps_domains = Organization.query.filter(Organization.id == 1).first().settings["google_apps_domains"]
+        google_apps_domains = Organization.query.filter(Organization.id == 1).first().settings.get("google_apps_domains", None)
         logging.info("Syncing destination ID: %s", self.id)
         error = self.destination.sync_visualization(query_result=query_result,
                                                     options=self.options, user_email=user.email, query_id=query_id, allowed_emails=google_apps_domains)

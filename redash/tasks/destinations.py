@@ -15,8 +15,9 @@ TIMEOUT_MESSAGE = "Destination Sync exceeded Redash destination sync time limit.
 def _job_lock_id(destination_id):
     return "sync_job:d:%s" % (destination_id)
 
-def _unlock(query_hash, data_source_id):
-    redis_connection.delete(_job_lock_id(query_hash, data_source_id))
+
+def _unlock(destination_id):
+    redis_connection.delete(_job_lock_id(destination_id))
 
 
 class InterruptException(Exception):
@@ -93,6 +94,9 @@ class SyncTask(object):
     def cancel(self):
         self._job.cancel()
 
+    def get_status(self):
+        return self.status
+
 
 def enqueue_destination(destination_id, user_id, sync_type, metadata={}):
     logger.info("Inserting job for %s with metadata=%s", destination_id, metadata)
@@ -112,8 +116,7 @@ def enqueue_destination(destination_id, user_id, sync_type, metadata={}):
                 job_cancelled = None
 
                 try:
-                    sync_task = SyncTask(job_id=job_id)
-                    job=sync_task._job
+                    job = SyncTask(job_id=job_id)
                     job_exists = True
                     status = job.get_status()
                     job_complete = status in [JobStatus.FINISHED, JobStatus.FAILED]
@@ -148,11 +151,10 @@ def enqueue_destination(destination_id, user_id, sync_type, metadata={}):
                     "destination_id": destination_id,
                     "sync_type": sync_type
                 }
-
-                job = queue.enqueue(
-                    sync_destination, destination_id, user_id, sync_type, **enqueue_kwargs
+                result = queue.enqueue(
+                    sync_destination, destination_id, user_id, sync_type
                 )
-
+                job = SyncTask(job=result)
                 logger.info("[%s] Created new sync job: %s", destination_id, job.id)
                 pipe.set(
                     _job_lock_id(destination_id),
@@ -172,16 +174,19 @@ def enqueue_destination(destination_id, user_id, sync_type, metadata={}):
 
 
 def sync_destination(destination_id, user_id, sync_type):
+    destination = models.Destination.query.get(destination_id)
     try:
-        destination = models.Destination.query.get(destination_id)
         error = destination.sync(user_id=user_id, sync_type=sync_type)
         _unlock(destination_id)
+
         if error:
             logger.warn(u"Some error occured while syncing data for the configuration: {options}"
-                            .format(options=destination.options.to_json()))
+                        .format(options=destination.options.to_json()))
+            logger.warn(error)
             raise DestinationSyncError(error)
 
-        logger.info("Successfully synced to google sheets")
+        logger.info(u"Successfully synced to google sheets for the configuration: {options}"
+                     .format(options=destination.options.to_json()))
         return None
     except JobTimeoutException:
         logger.warn(TIMEOUT_MESSAGE, u" Configuration: {options}".format(options=destination.options.to_json()))
@@ -202,5 +207,10 @@ def sync_destination(destination_id, user_id, sync_type):
         logger.info("Added sync time limit failure to db")
         raise JobTimeoutException
     except DequeueTimeout as e:
-        logger.info(f"Job Dequeue Timeout: {e.extra_info}", u"Configuration: {options}".format(options=destination.options.to_json()))
+        logger.info(f"Job Dequeue Timeout: {e.extra_info}",
+                    u"Configuration: {options}".format(options=destination.options.to_json()))
+        raise e
+    except Exception as e:
+        logger.info(f"Exception occurred while destination sync : {str(e)}",
+                    u"Configuration: {options}".format(options=destination.options.to_json()))
         raise e
