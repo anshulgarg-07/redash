@@ -257,7 +257,7 @@ class QueryExecutor(object):
 
             models.db.session.commit()  # make sure that alert sees the latest query result
             # Only send to destination when query is scheduled
-            if self.query_model:
+            if self.query_model and settings.DESTINATION_SYNC_ENABLED:
                 destinations = models.Destination.all(query=self.query_model)
                 for destination in destinations:
                     self._log_progress('syncing results to destination id: {d}'.format(d=destination.id))
