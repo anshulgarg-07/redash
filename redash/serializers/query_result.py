@@ -6,7 +6,8 @@ from dateutil.parser import isoparse as parse_date
 from redash.utils import json_loads, UnicodeWriter
 from redash.query_runner import TYPE_BOOLEAN, TYPE_DATE, TYPE_DATETIME
 from redash.authentication.org_resolving import current_org
-
+from redash.permissions import can_override_download_limit
+from redash import settings
 
 def _convert_format(fmt):
     return (
@@ -88,8 +89,10 @@ def serialize_query_result_to_dsv(query_result, delimiter):
 
     writer = csv.DictWriter(s, extrasaction="ignore", fieldnames=fieldnames, delimiter=delimiter)
     writer.writeheader()
+    
+    download_limit = len(query_data['rows']) if can_override_download_limit() else settings.QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT
 
-    for row in query_data["rows"]:
+    for row in query_data["rows"][:download_limit]:
         for col_name, converter in special_columns.items():
             if col_name in row:
                 row[col_name] = converter(row[col_name])
@@ -110,8 +113,10 @@ def serialize_query_result_to_xlsx(query_result):
     for c, col in enumerate(query_data["columns"]):
         sheet.write(0, c, col["name"])
         column_names.append(col["name"])
+        
+    download_limit = len(query_data['rows']) if can_override_download_limit() else settings.QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT
 
-    for r, row in enumerate(query_data["rows"]):
+    for r, row in enumerate(query_data["rows"][:download_limit]):
         for c, name in enumerate(column_names):
             v = row.get(name)
             if isinstance(v, (dict, list)):

@@ -204,7 +204,7 @@ class QueryExecutor(object):
         self._log_progress("executing_query")
 
         query_runner = self.data_source.query_runner
-        sql_limit_query = query_runner.apply_auto_limit(self.query, should_apply_auto_limit=True)
+        sql_limit_query = query_runner.apply_auto_limit(self.query, should_apply_auto_limit=False)
         annotated_query = self._annotate_query(query_runner, sql_limit_query)
 
         try:

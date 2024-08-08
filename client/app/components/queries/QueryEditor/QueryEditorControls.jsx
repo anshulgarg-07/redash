@@ -95,7 +95,7 @@ export default function EditorControl({
       )}
       {autoLimitCheckboxProps !== false && <AutoLimitCheckbox {...autoLimitCheckboxProps} />}
       <div style={containerStyle}>
-        <InfoIcon message="Max Output Rows - 100000" />
+        <InfoIcon message={dataSourceSelectorProps.sql_max_rows_limit} />
       </div>
       {dataSourceSelectorProps === false && <span className="query-editor-controls-spacer" />}
       {dataSourceSelectorProps !== false && (
@@ -182,6 +182,7 @@ EditorControl.propTypes = {
         })
       ),
       onChange: PropTypes.func,
+      sql_max_rows_limit: PropTypes.number
     }),
   ]),
 };

@@ -49,7 +49,7 @@ const InfoIcon = ({ message }) => {
             onMouseLeave={() => setShowTooltip(false)}
         >
             <div style={iconStyle}>i</div>
-            <div style={tooltipStyle}>{message}</div>
+            <div style={tooltipStyle}>{"Max Output Rows - " + String(message)}</div>
         </div>
     );
 };

@@ -329,6 +329,7 @@ function QuerySource(props) {
                               value: dataSource.id,
                               onChange: handleDataSourceChange,
                               options: map(dataSources, ds => ({ value: ds.id, label: ds.name })),
+                              sql_max_rows_limit: dataSource.sql_max_rows_limit
                             }
                           : false
                       }

@@ -124,4 +124,8 @@ def require_object_modify_permission(obj, user):
         abort(403)
         
 def is_pseudo_admin(object_user_id):
-    return has_permission_or_owner('pseudo_admin', object_user_id)
+    return has_permission_or_owner("pseudo_admin", object_user_id)
+
+
+def can_override_download_limit():
+    return current_user.has_permission("override_download_limit")
