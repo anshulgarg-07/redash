@@ -562,19 +562,18 @@ DASHBOARD_RESTRICTED_REFRESH_MESSAGE = os.environ.get("DASHBOARD_RESTRICTED_REFR
 # header display
 TOP_BANNER_TEXT = os.environ.get("TOP_BANNER_TEXT", "")
 # Catalog link display
-REDASH_DB_CATALOG_MAPPING = json.loads(os.environ.get('REDASH_DB_CATALOG_MAPPING', "{\"1\":\"zomato\"}"))
+REDASH_DB_CATALOG_MAPPING = json.loads(os.environ.get('REDASH_DB_CATALOG_MAPPING', "{\"1\":\"trino\"}"))
 
 # API link to get the datasets details of data-catalog.grofers.io
-DATA_CATALOG_DATASET_API = os.environ.get('DATA_CATALOG_DATASET_API', 'http://172.31.67.247:8080/entitiesV2/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3A{platform},{table_name},{origin})')
-DATA_CATALOG_ACCESS_KEY = os.environ.get('DATA_CATALOG_ACCESS_KEY','')
+DATA_CATALOG_DATASET_API = os.environ.get('DATA_CATALOG_DATASET_API', '')
 # Link of Datasets at data-catalog.grofers.io
-REDASH_VIEW_CATALOG_LINK = os.environ.get('REDASH_VIEW_CATALOG_LINK', 'https://datahub.eternal.com/dataset/urn:li:dataset:(urn:li:dataPlatform:{data_platform},{full_table_name},PROD)/Schema?schemaFilter=')
+REDASH_VIEW_CATALOG_LINK = os.environ.get('REDASH_VIEW_CATALOG_LINK', '')
 
 # night refresh skip/weekend reduced frequency
-REDASH_NIGHTLY_SKIP = parse_boolean(os.environ.get('REDASH_NIGHTLY_SKIP', 'true'))
-REDASH_REDUCED_WEEKEND_RUNS = parse_boolean(os.environ.get('REDASH_REDUCED_WEEKEND_RUNS', 'true'))
-NIGHT_START = os.environ.get('REDASH_NIGHT_START', '04:30AM')
-NIGHT_END = os.environ.get('REDASH_NIGHT_END', '05:30PM')
+REDASH_NIGHTLY_SKIP = parse_boolean(os.environ.get('REDASH_NIGHTLY_SKIP', 'false'))
+REDASH_REDUCED_WEEKEND_RUNS = parse_boolean(os.environ.get('REDASH_REDUCED_WEEKEND_RUNS', 'false'))
+NIGHT_START = os.environ.get('REDASH_NIGHT_START', '04:30PM')
+NIGHT_END = os.environ.get('REDASH_NIGHT_END', '12:30AM')
 # Decrease the scheduled query execution by this many times
 WEEKEND_FREQUENCY = int(os.environ.get('REDASH_WEEKEND_FREQUENCY', 3))
 # If Schedule Interval of query is more than this limit, do not execute it on weekends at all
@@ -583,8 +582,14 @@ INTERVAL_LIMIT = int(os.environ.get('REDASH_INTERVAL_LIMIT', 14400))
 AURORA_TAGS = array_from_string(os.environ.get("REDASH_AURORA_TAGS", "nightly-skip,reduced-weekend-runs"))
 # Data Source on which default tags shall be applied
 TAG_DATA_SOURCES = array_from_string(os.environ.get("REDASH_TAG_DATA_SOURCES", "1"))
+
+# API link to get the datasets details of data-catalog.grofers.io
+DATA_CATALOG_DATASET_API = os.environ.get('DATA_CATALOG_DATASET_API', '')
+DATA_CATALOG_ACCESS_KEY = os.environ.get('DATA_CATALOG_ACCESS_KEY','')
+# Link of Datasets at data-catalog.grofers.io
+REDASH_VIEW_CATALOG_LINK = os.environ.get('REDASH_VIEW_CATALOG_LINK', '')
 # Sync to Destination
-REDASH_GOOGLE_SHEET_API_CONFIG = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_API_CONFIG', '{}'))
-REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS', '{}'))
-REDASH_GOOGLE_SHEET_CLIENT_MAPPING = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_CLIENT_MAPPING', '{}'))
 REDASH_SYNC_TIME_LIMIT = int(os.environ.get('REDASH_SYNC_TIME_LIMIT', 60))
+DESTINATION_SYNC_ENABLED = parse_boolean(os.environ.get("REDASH_DESTINATION_SYNC_ENABLED", "false"))
+QUERY_RESULT_MAX_BYTES_LIMIT = int(os.environ.get("REDASH_QUERY_RESULT_MAX_BYTES_LIMIT", 10737418240)) # 10GB
+QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT = int(os.environ.get("QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT", 1000000000))
