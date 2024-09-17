@@ -199,7 +199,7 @@ class DataSource(BelongsToOrgMixin, db.Model):
             out_schema = self.get_cached_schema()
         if out_schema is None:
             query_runner = self.query_runner
-            schema = query_runner.get_schema(get_stats=refresh)
+            schema = sorted(query_runner.get_schema(get_stats=refresh), key=lambda t: t['name'])
             schema = self.add_catalog_link(schema)
             try:
                 out_schema = self._sort_schema(schema)
