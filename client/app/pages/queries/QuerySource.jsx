@@ -389,7 +389,7 @@ function QuerySource(props) {
                       ))}
                     </div>
                   )}
-                  {loadedInitialResults && !(queryFlags.isNew && !queryResult) && (
+                  {loadedInitialResults && !isQueryExecuting && !isExecutionCancelling && !(queryFlags.isNew && !queryResult) && !queryResult.getError() && (
                     <QueryVisualizationTabs
                       queryResult={queryResult}
                       visualizations={query.visualizations}
