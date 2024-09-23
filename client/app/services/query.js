@@ -24,7 +24,6 @@ import location from "@/services/location";
 import { Parameter, createParameter } from "./parameters";
 import { currentUser } from "./auth";
 import QueryResult from "./query-result";
-import localOptions from "@/lib/localOptions";
 
 Mustache.escape = identity; // do not html-escape values
 
@@ -402,7 +401,7 @@ QueryService.newQuery = function newQuery() {
     name: "New Query",
     schedule: null,
     user: currentUser,
-    options: { apply_auto_limit: localOptions.get("applyAutoLimit", true) },
+    options: { apply_auto_limit: true },
     tags: [],
     can_edit: true,
   });
