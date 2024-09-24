@@ -1,13 +1,19 @@
 import io
 import csv
 import xlsxwriter
+import uuid
+import logging
 from funcy import rpartial, project
 from dateutil.parser import isoparse as parse_date
-from redash.utils import json_loads, UnicodeWriter
 from redash.query_runner import TYPE_BOOLEAN, TYPE_DATE, TYPE_DATETIME
 from redash.authentication.org_resolving import current_org
 from redash.permissions import can_override_download_limit
 from redash import settings
+from datetime import datetime, timedelta, timezone
+from redash.tasks.audit_downloads import enqueue_download_audit
+from redash.settings import ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING
+
+IST_OFFSET = timedelta(hours=5, minutes=30)
 
 def _convert_format(fmt):
     return (
@@ -80,7 +86,7 @@ def serialize_query_result(query_result, is_api_user):
         return query_result.to_dict()
 
 
-def serialize_query_result_to_dsv(query_result, delimiter):
+def serialize_query_result_to_dsv(query_result, delimiter, current_user, format, query):
     s = io.StringIO()
 
     query_data = query_result.data
@@ -91,8 +97,13 @@ def serialize_query_result_to_dsv(query_result, delimiter):
     writer.writeheader()
     
     download_limit = len(query_data['rows']) if can_override_download_limit() else settings.QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT
+    download_data = query_data["rows"][:download_limit]
+    current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
 
-    for row in query_data["rows"][:download_limit]:
+    if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
+        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=download_limit)
+    
+    for row in download_data:
         for col_name, converter in special_columns.items():
             if col_name in row:
                 row[col_name] = converter(row[col_name])
@@ -101,8 +112,7 @@ def serialize_query_result_to_dsv(query_result, delimiter):
 
     return s.getvalue()
 
-
-def serialize_query_result_to_xlsx(query_result):
+def serialize_query_result_to_xlsx(query_result, current_user, format, query):
     output = io.BytesIO()
 
     query_data = query_result.data
@@ -113,10 +123,15 @@ def serialize_query_result_to_xlsx(query_result):
     for c, col in enumerate(query_data["columns"]):
         sheet.write(0, c, col["name"])
         column_names.append(col["name"])
-        
-    download_limit = len(query_data['rows']) if can_override_download_limit() else settings.QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT
 
-    for r, row in enumerate(query_data["rows"][:download_limit]):
+    download_limit = len(query_data['rows']) if can_override_download_limit() else settings.QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT
+    download_data = query_data["rows"][:download_limit]
+    current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
+
+    if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
+        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=download_limit)
+
+    for r, row in enumerate(download_data):
         for c, name in enumerate(column_names):
             v = row.get(name)
             if isinstance(v, (dict, list)):

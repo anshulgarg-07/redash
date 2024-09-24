@@ -1,6 +1,3 @@
-import logging
-import time
-
 import unicodedata
 from flask import make_response, request
 from flask_login import current_user
@@ -417,7 +414,7 @@ class QueryResultResource(BaseResource):
                 "csv": self.make_csv_response,
                 "tsv": self.make_tsv_response,
             }
-            response = response_builders[filetype](query_result)
+            response = response_builders[filetype](query_result, self.current_user, query.query_text if query else query_result.query_text)
 
             if len(settings.ACCESS_CONTROL_ALLOW_ORIGIN) > 0:
                 self.add_cors_headers(response.headers)
@@ -438,31 +435,31 @@ class QueryResultResource(BaseResource):
             abort(404, message="No cached result found for this query.")
 
     @staticmethod
-    def make_json_response(query_result):
+    def make_json_response(query_result, current_user, query):
         data = json_dumps({"query_result": query_result.to_dict()})
         headers = {"Content-Type": "application/json"}
         return make_response(data, 200, headers)
 
     @staticmethod
-    def make_csv_response(query_result):
+    def make_csv_response(query_result, current_user, query):
         headers = {"Content-Type": "text/csv; charset=UTF-8"}
         return make_response(
-            serialize_query_result_to_dsv(query_result, ","), 200, headers
+            serialize_query_result_to_dsv(query_result, ",", current_user, "csv", query), 200, headers
         )
 
     @staticmethod
-    def make_tsv_response(query_result):
+    def make_tsv_response(query_result, current_user, query):
         headers = {"Content-Type": "text/tab-separated-values; charset=UTF-8"}
         return make_response(
-            serialize_query_result_to_dsv(query_result, "\t"), 200, headers
+            serialize_query_result_to_dsv(query_result, "\t", current_user, "tsv", query), 200, headers
         )
 
     @staticmethod
-    def make_excel_response(query_result):
+    def make_excel_response(query_result, current_user, query):
         headers = {
             "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         }
-        return make_response(serialize_query_result_to_xlsx(query_result), 200, headers)
+        return make_response(serialize_query_result_to_xlsx(query_result, current_user, "excel", query), 200, headers)
 
 
 class JobResource(BaseResource):

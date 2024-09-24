@@ -20,6 +20,7 @@ x-redash-environment: &redash-environment
   REDASH_ENFORCE_CSRF: "true"
   REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT: "true"
   REDASH_COOKIE_SECRET: akdgksdbkewqb
+  QUEUES: "queries,scheduled_queries,celery,schemas,push_to_jumbo"
   # Set secret keys in the .env file
 services:
   server:
@@ -50,7 +51,6 @@ services:
     environment:
       <<: *redash-environment
       PYTHONUNBUFFERED: 0
-      QUEUES: "queries,scheduled_queries,celery,schemas"
       WORKERS_COUNT: 2
   redis:
     image: redis:3-alpine
@@ -81,3 +81,11 @@ services:
     depends_on:
       - server
     restart: always
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    restart: unless-stopped
+    ports:
+      - 8082:8081

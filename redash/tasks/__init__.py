@@ -18,6 +18,7 @@ from .failure_report import send_aggregated_errors, notify_of_failure
 from .worker import Worker, Queue, Job
 from .schedule import rq_scheduler, schedule_periodic_jobs, periodic_job_definitions
 from .destinations import sync_destination
+from .audit_downloads import push_to_jumbo
 
 from redash import rq_redis_connection
 from rq.connections import push_connection, pop_connection

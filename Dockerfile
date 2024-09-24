@@ -61,6 +61,12 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
+# Install DuckDB Python package
+RUN pip install duckdb==0.10.3
+
+# Install and load httpfs extension
+RUN python -c "import duckdb; conn = duckdb.connect(); conn.execute('INSTALL httpfs'); conn.execute('LOAD httpfs'); conn.close()"
+
 
 ARG databricks_odbc_driver_url=https://databricks.com/wp-content/uploads/2.6.10.1010-2/SimbaSparkODBC-2.6.10.1010-2-Debian-64bit.zip
 RUN wget --quiet $databricks_odbc_driver_url -O /tmp/simba_odbc.zip \
