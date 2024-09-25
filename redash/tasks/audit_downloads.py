@@ -137,7 +137,7 @@ def push_to_jumbo(push_id, data, user, query, time, format, limit):
         df = pd.DataFrame(download_audit_log, index=[0])
         
         conn = duckdb.connect()
-
+        conn.execute('CALL load_aws_credentials()')
         conn.register('df', df)
         conn.execute(f"""
             COPY df TO '{s3_path}'
