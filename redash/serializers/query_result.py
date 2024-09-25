@@ -101,7 +101,7 @@ def serialize_query_result_to_dsv(query_result, delimiter, current_user, format,
     current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=download_limit)
+        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data))
     
     for row in download_data:
         for col_name, converter in special_columns.items():
@@ -129,7 +129,7 @@ def serialize_query_result_to_xlsx(query_result, current_user, format, query):
     current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=download_limit)
+        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data))
 
     for r, row in enumerate(download_data):
         for c, name in enumerate(column_names):

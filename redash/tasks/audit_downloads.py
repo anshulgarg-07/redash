@@ -116,31 +116,41 @@ def push_to_jumbo(push_id, data, user, query, time, format, limit):
         download_data = data["rows"][:limit]
         
         dt = time.strftime('%Y%m%d')
-        s3_base_path = settings.DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH
-        unique_file_name = f"part-{str(uuid.uuid4())}.parquet"
-        s3_path = f"{s3_base_path}/dt={dt}/{unique_file_name}"
+        logging_table_path = settings.DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH
+        data_path = settings.DOWNLOAD_DATA_ARCHIVE_S3_PATH
+        unique_table_file_name = f"part-{str(uuid.uuid4())}.parquet"
+        data_file_name = f"data-{str(uuid.uuid4())}.parquet"
+        s3_table_path = f"{logging_table_path}/dt={dt}/{unique_table_file_name}"
+        s3_data_path = f"{data_path}/{data_file_name}"
 
         download_audit_log: dict = {
             "id": str(uuid.uuid1()),
             "user": user,
             "timestamp": int(time.timestamp()),
             "dt": time.strftime('%Y%m%d'),
-            "sample_data": json.dumps(download_data[:2000]),
+            "sample_data": json.dumps(download_data[:1000]),
             "total_row_count": len(download_data),
             "format": format,
             "columns": data["columns"],
             "query": query,
-            "data_path": s3_path
+            "data_path": s3_data_path
         }
         
         download_audit_log = {key: [value] for key, value in download_audit_log.items()}
-        df = pd.DataFrame(download_audit_log, index=[0])
+        table_df = pd.DataFrame(download_audit_log, index=[0])
+        data_df = pd.DataFrame(download_data)
         
         conn = duckdb.connect()
         conn.execute('CALL load_aws_credentials()')
-        conn.register('df', df)
+        
+        conn.register('table_df', table_df)
+        conn.register('data_df', data_df)
         conn.execute(f"""
-            COPY df TO '{s3_path}'
+            COPY data_df TO '{s3_data_path}'
+            (FORMAT PARQUET)
+        """)
+        conn.execute(f"""
+            COPY table_df TO '{s3_table_path}'
             (FORMAT PARQUET, PARTITION_BY (dt))
         """)
         _unlock(push_id)
