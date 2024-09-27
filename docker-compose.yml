@@ -21,6 +21,9 @@ x-redash-environment: &redash-environment
   REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT: "true"
   REDASH_COOKIE_SECRET: akdgksdbkewqb
   QUEUES: "queries,scheduled_queries,celery,schemas,push_to_jumbo"
+  DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH: "s3://zomato-data-staging/harshit/redash-download-logging"
+  DOWNLOAD_DATA_ARCHIVE_S3_PATH: "s3://zomato-data-staging/harshit/redash-downloaded-data"
+  ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING: true
   # Set secret keys in the .env file
 services:
   server:
