@@ -21,7 +21,6 @@ x-redash-environment: &redash-environment
   REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT: "true"
   REDASH_COOKIE_SECRET: akdgksdbkewqb
   QUEUES: "queries,scheduled_queries,celery,schemas,push_to_jumbo"
-  ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING: true
   # Set secret keys in the .env file
 services:
   server:
