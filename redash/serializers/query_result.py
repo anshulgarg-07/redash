@@ -86,7 +86,7 @@ def serialize_query_result(query_result, is_api_user):
         return query_result.to_dict()
 
 
-def serialize_query_result_to_dsv(query_result, delimiter, current_user, format, query):
+def serialize_query_result_to_dsv(query_result, delimiter, current_user, format, query, query_result_id, current_org_id):
     s = io.StringIO()
 
     query_data = query_result.data
@@ -101,7 +101,7 @@ def serialize_query_result_to_dsv(query_result, delimiter, current_user, format,
     current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data))
+        enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id)
     
     for row in download_data:
         for col_name, converter in special_columns.items():
@@ -112,7 +112,7 @@ def serialize_query_result_to_dsv(query_result, delimiter, current_user, format,
 
     return s.getvalue()
 
-def serialize_query_result_to_xlsx(query_result, current_user, format, query):
+def serialize_query_result_to_xlsx(query_result, current_user, format, query, query_result_id, current_org_id):
     output = io.BytesIO()
 
     query_data = query_result.data
@@ -129,7 +129,7 @@ def serialize_query_result_to_xlsx(query_result, current_user, format, query):
     current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-        enqueue_download_audit(push_id=uuid.uuid4(), data=query_data, user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data))
+        enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id)
 
     for r, row in enumerate(download_data):
         for c, name in enumerate(column_names):

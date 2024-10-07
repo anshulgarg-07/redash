@@ -4,11 +4,13 @@ from rq.exceptions import NoSuchJobError
 from redash.worker import get_job_logger
 from redash.utils import utcnow
 from redash import models, settings, redis_connection
+from flask_restful import abort
 import duckdb
 import json
 import pandas as pd
 import uuid
 from rq.job import JobStatus
+from sqlalchemy.orm.exc import NoResultFound
 
 logger = get_job_logger(__name__)
 
@@ -42,7 +44,7 @@ class PushToJumboTask(object):
         return self.status
 
 
-def enqueue_download_audit(push_id, data, user, query, time, format, limit):
+def enqueue_download_audit(push_id, user, query, time, format, limit, query_result_id, current_org_id):
     logger.info("Inserting push_to_jumbo for user: %s", user)
     try_count = 0
     job = None
@@ -89,7 +91,7 @@ def enqueue_download_audit(push_id, data, user, query, time, format, limit):
                 queue = Queue(queue_name)
                 logger.info(f"Enqueing push_to_jumbo job for query {query} in {queue_name}")
                 result = queue.enqueue(
-                    push_to_jumbo, push_id, data, user, query, time, format, limit
+                    push_to_jumbo, push_id, user, query, time, format, limit, query_result_id, current_org_id
                 )
                 job = PushToJumboTask(job=result)
                 logger.info("[%s] Created push_to_jumbo job: %s", push_id, job.id)
@@ -110,11 +112,20 @@ def enqueue_download_audit(push_id, data, user, query, time, format, limit):
     return job
 
 
-def push_to_jumbo(push_id, data, user, query, time, format, limit):
+def push_to_jumbo(push_id, user, query, time, format, limit, query_result_id, current_org_id):
     try:
-        logger.info(f"Processing push_to_jumbo task for user: {user} downloading {limit} rows")
-        download_data = data["rows"][:limit]
+        logger.info(f"[push_to_jumbo] Querying query_results for query_result_id: {query_result_id}")
+        if current_org_id:
+            current_org = models.Organization.get_by_id(current_org_id)
+        if query_result_id and current_org:
+            query_result = get_object_or_404(
+                models.QueryResult.get_by_id_and_org, query_result_id, current_org
+            )
         
+        query_data = query_result.data
+        download_data = query_data["rows"][:limit]
+        columns = query_data["columns"]
+        logger.info(f"[push_to_jumbo] Processing task for user: {user} downloading {limit} rows")
         dt = time.strftime('%Y%m%d')
         logging_table_path = settings.DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH
         data_path = settings.DOWNLOAD_DATA_ARCHIVE_S3_PATH
@@ -128,12 +139,13 @@ def push_to_jumbo(push_id, data, user, query, time, format, limit):
             "user": user,
             "timestamp": int(time.timestamp()),
             "dt": time.strftime('%Y%m%d'),
-            "sample_data": json.dumps(download_data[:1000]),
-            "total_row_count": len(download_data),
+            "sample_data": json.dumps(download_data[:10]),
+            "total_row_count": limit,
             "format": format,
-            "columns": data["columns"],
+            "columns": columns,
             "query": query,
-            "data_path": s3_data_path
+            "data_path": s3_data_path,
+            "redash_type": settings.REDASH_NAME
         }
         
         download_audit_log = {key: [value] for key, value in download_audit_log.items()}
@@ -151,9 +163,18 @@ def push_to_jumbo(push_id, data, user, query, time, format, limit):
         """)
         conn.execute(f"""
             COPY table_df TO '{s3_table_path}'
-            (FORMAT PARQUET, PARTITION_BY (dt))
+            (FORMAT PARQUET)
         """)
         _unlock(push_id)
     except Exception as e:
         logger.info(f"Exception occurred while pushing download logs to jumbo: {e}")
         _unlock(push_id)
+        
+def get_object_or_404(fn, *args, **kwargs):
+    try:
+        rv = fn(*args, **kwargs)
+        if rv is None:
+            abort(404)
+    except NoResultFound:
+        abort(404)
+    return rv
