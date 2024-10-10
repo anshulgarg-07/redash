@@ -94,7 +94,7 @@ def sheet_url_from_id(sheet_id):
     return {"sheet_link": f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit#gid=0"}
 
 def get_worksheet_name(query_name):
-    return (f"{query_name}-" if query_name else "") + str(datetime.now())
+    return (f"{query_name}-" if query_name else "") + str(datetime.now(timezone.utc) + IST_OFFSET)
 
 def fetch_gsheets_client(sheet_id: str = None, current_user=OWNER_EMAIL) -> DelegatedGspreadClient:
     google_apps_domains = models.Organization.query.filter(models.Organization.id == 1).first().settings.get("google_apps_domains", None)
@@ -107,7 +107,7 @@ def fetch_gsheets_client(sheet_id: str = None, current_user=OWNER_EMAIL) -> Dele
     )
     return client
 
-def export_serialized_results_to_gsheet(query_result, current_user, query_id, query_name):
+def export_serialized_results_to_gsheet(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name):
     gsheet_id = ""
     sheet_name = f"Redash-download-{str(datetime.now())}"
     if query_id:
@@ -126,7 +126,7 @@ def export_serialized_results_to_gsheet(query_result, current_user, query_id, qu
                 models.Query.set_gsheet_to_query_options(query_id, gsheet_id)
             client.set_permissions(gsheet_id, current_user.email)
             client.add_drive_labels(gsheet_id, labels=["Lvjzj2dSK24gZxerKnm5LeQhciVxhCAv8XpSNNEbbFcb", "sKqKqy2zyrPKOH5El085hgnHjQQhI89fQnhSNNEbbFcb"])
-            upload_data_to_gsheet(client, query_result, gsheet_id, sheet_name)
+            upload_data_to_gsheet(client, query_result, gsheet_id, sheet_name, current_user.email, query, query_result_id, current_org_id)
         else:
             logging.info(f"[Gsheets Export] Using existing spreadsheet with id {gsheet_id}")
             client.get()
@@ -137,14 +137,14 @@ def export_serialized_results_to_gsheet(query_result, current_user, query_id, qu
                 client.set_permissions(gsheet_id, current_user.email)
             worksheet_name = get_worksheet_name(query_name)
             client.create_new_worksheet(wb, sheet_name=worksheet_name)
-            upload_data_to_gsheet(client, query_result, gsheet_id, worksheet_name)
+            upload_data_to_gsheet(client, query_result, gsheet_id, worksheet_name, current_user.email, query, query_result_id, current_org_id)
         return sheet_url_from_id(gsheet_id)
     except Exception as e:
         logging.error(f"[Gsheets Export] Failed: The export of data to gsheet {gsheet_id} failed because of error: {str(e)}")
         return {"error": f"Export to Google Sheet failed: {str(e)}"}
 
 
-def upload_data_to_gsheet(client, query_result, sheet_id, sheet_name):
+def upload_data_to_gsheet(client, query_result, sheet_id, sheet_name, user, query, query_result_id, current_org_id):
     try:
         query_data = query_result.data
         column_names = []
@@ -152,8 +152,13 @@ def upload_data_to_gsheet(client, query_result, sheet_id, sheet_name):
             column_names.append(col.get("name"))
         data = []
         data.append(column_names)
+        current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
+        export_data = query_data["rows"]
 
-        for r, row in enumerate(query_data["rows"]):
+        if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
+            enqueue_download_audit(push_id=uuid.uuid4(), user=user, query=query, time=current_ist_time, format=format, limit=len(export_data), query_result_id=query_result_id, current_org_id=current_org_id, source="export")
+
+        for r, row in enumerate(export_data):
             row_data = []
             for c, name in enumerate(column_names):
                 val = row.get(name, "")
@@ -192,7 +197,7 @@ def serialize_query_result_to_dsv(query_result, delimiter, current_user, format,
     current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-        enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id)
+        enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id, source="download")
     
     for row in download_data:
         for col_name, converter in special_columns.items():
@@ -220,7 +225,7 @@ def serialize_query_result_to_xlsx(query_result, current_user, format, query, qu
     current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-        enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id)
+        enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id, source="download")
 
     for r, row in enumerate(download_data):
         for c, name in enumerate(column_names):

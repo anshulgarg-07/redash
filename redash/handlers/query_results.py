@@ -470,7 +470,7 @@ class QueryResultResource(BaseResource):
             "Content-Type": "application/json"
         }
 
-        return make_response(jsonify(export_serialized_results_to_gsheet(query_result, current_user, query_id, query_name)), 200, headers)
+        return make_response(jsonify(export_serialized_results_to_gsheet(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name)), 200, headers)
 
 
 class JobResource(BaseResource):

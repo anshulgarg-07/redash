@@ -44,7 +44,7 @@ class PushToJumboTask(object):
         return self.status
 
 
-def enqueue_download_audit(push_id, user, query, time, format, limit, query_result_id, current_org_id):
+def enqueue_download_audit(push_id, user, query, time, format, limit, query_result_id, current_org_id, source):
     logger.info("Inserting push_to_jumbo for user: %s", user)
     try_count = 0
     job = None
@@ -91,7 +91,7 @@ def enqueue_download_audit(push_id, user, query, time, format, limit, query_resu
                 queue = Queue(queue_name)
                 logger.info(f"Enqueing push_to_jumbo job for query {query} in {queue_name}")
                 result = queue.enqueue(
-                    push_to_jumbo, push_id, user, query, time, format, limit, query_result_id, current_org_id
+                    push_to_jumbo, push_id, user, query, time, format, limit, query_result_id, current_org_id, source
                 )
                 job = PushToJumboTask(job=result)
                 logger.info("[%s] Created push_to_jumbo job: %s", push_id, job.id)
@@ -112,7 +112,7 @@ def enqueue_download_audit(push_id, user, query, time, format, limit, query_resu
     return job
 
 
-def push_to_jumbo(push_id, user, query, time, format, limit, query_result_id, current_org_id):
+def push_to_jumbo(push_id, user, query, time, format, limit, query_result_id, current_org_id, source):
     try:
         logger.info(f"[push_to_jumbo] Querying query_results for query_result_id: {query_result_id}")
         if current_org_id:
@@ -145,7 +145,8 @@ def push_to_jumbo(push_id, user, query, time, format, limit, query_result_id, cu
             "columns": columns,
             "query": query,
             "data_path": s3_data_path,
-            "redash_type": settings.REDASH_NAME
+            "redash_type": settings.REDASH_NAME,
+            "source": source
         }
         
         download_audit_log = {key: [value] for key, value in download_audit_log.items()}
@@ -154,7 +155,6 @@ def push_to_jumbo(push_id, user, query, time, format, limit, query_result_id, cu
         
         conn = duckdb.connect()
         conn.execute('CALL load_aws_credentials()')
-        
         conn.register('table_df', table_df)
         conn.register('data_df', data_df)
         conn.execute(f"""
