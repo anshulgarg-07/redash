@@ -2,6 +2,7 @@ import unicodedata
 from flask import make_response, request
 from flask_login import current_user
 from flask_restful import abort
+from flask import jsonify
 from werkzeug.urls import url_quote
 from redash import models, settings
 from redash.handlers.base import BaseResource, get_object_or_404, record_event
@@ -33,6 +34,7 @@ from redash.serializers import (
     serialize_query_result_to_dsv,
     serialize_query_result_to_xlsx,
     serialize_job,
+    export_serialized_results_to_gsheet,
 )
 
 
@@ -413,8 +415,9 @@ class QueryResultResource(BaseResource):
                 "xlsx": self.make_excel_response,
                 "csv": self.make_csv_response,
                 "tsv": self.make_tsv_response,
+                "gsheets-export": self.make_export_gsheets_response,
             }
-            response = response_builders[filetype](query_result, self.current_user, query.query_text if query else query_result.query_text, query_result_id, self.current_org.id)
+            response = response_builders[filetype](query_result, self.current_user, query.query_text if query else query_result.query_text, query_result_id, self.current_org.id, query_id, query.name if query else "")
 
             if len(settings.ACCESS_CONTROL_ALLOW_ORIGIN) > 0:
                 self.add_cors_headers(response.headers)
@@ -435,31 +438,39 @@ class QueryResultResource(BaseResource):
             abort(404, message="No cached result found for this query.")
 
     @staticmethod
-    def make_json_response(query_result, current_user, query, query_result_id, current_org_id):
+    def make_json_response(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name):
         data = json_dumps({"query_result": query_result.to_dict()})
         headers = {"Content-Type": "application/json"}
         return make_response(data, 200, headers)
 
     @staticmethod
-    def make_csv_response(query_result, current_user, query, query_result_id, current_org_id):
+    def make_csv_response(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name):
         headers = {"Content-Type": "text/csv; charset=UTF-8"}
         return make_response(
             serialize_query_result_to_dsv(query_result, ",", current_user, "csv", query, query_result_id, current_org_id), 200, headers
         )
 
     @staticmethod
-    def make_tsv_response(query_result, current_user, query, query_result_id, current_org_id):
+    def make_tsv_response(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name):
         headers = {"Content-Type": "text/tab-separated-values; charset=UTF-8"}
         return make_response(
             serialize_query_result_to_dsv(query_result, "\t", current_user, "tsv", query, query_result_id, current_org_id), 200, headers
         )
 
     @staticmethod
-    def make_excel_response(query_result, current_user, query, query_result_id, current_org_id):
+    def make_excel_response(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name):
         headers = {
             "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         }
         return make_response(serialize_query_result_to_xlsx(query_result, current_user, "excel", query, query_result_id, current_org_id), 200, headers)
+
+    @staticmethod
+    def make_export_gsheets_response(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name):
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        return make_response(jsonify(export_serialized_results_to_gsheet(query_result, current_user, query_id, query_name)), 200, headers)
 
 
 class JobResource(BaseResource):

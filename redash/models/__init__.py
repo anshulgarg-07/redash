@@ -809,6 +809,32 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
 
         return query_ids
 
+    @classmethod
+    def get_gsheet_by_id(cls, id):
+        try:
+            query_instance = cls.query.filter_by(id=id).first()
+            if not query_instance:
+                raise ValueError(f"Query with ID {id} not found.")
+            gsheet_id = query_instance.options.get("gsheet_id", "") if query_instance.options else ""
+            return gsheet_id
+        except Exception as e:
+            logger.error(f"[Fetch Gsheet]: Could not find existing gsheet for query with error {str(e)}")
+            return ""
+
+    @classmethod
+    def set_gsheet_to_query_options(cls, id, sheet_id):
+        try:
+            query_instance = cls.query.filter_by(id=id).first()
+            if not query_instance:
+                raise ValueError(f"Query with ID {id} not found.")
+            options = query_instance.options or {}
+            options["gsheet_id"] = sheet_id
+            query_instance.options = options
+            db.session.commit()
+            logger.info(f"Successfully updated query options with gsheet_id: {sheet_id}")
+        except Exception as e:
+            logger.error(f"[Set gsheet_id to db]: Could not upload query options with sheet id with error: {str(e)}")
+
     def fork(self, user):
         forked_list = [
             "org",

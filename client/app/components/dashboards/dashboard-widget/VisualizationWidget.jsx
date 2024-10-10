@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import PropTypes from "prop-types";
 import { compact, isEmpty, invoke, map } from "lodash";
 import { markdown } from "markdown";
+import Modal from "antd/lib/modal";
+import Spin from "antd/lib/spin";
+import Alert from "antd/lib/alert";
 import cx from "classnames";
 import Menu from "antd/lib/menu";
 import HtmlContent from "@redash/viz/lib/components/HtmlContent";
@@ -20,9 +23,11 @@ import ExpandedWidgetDialog from "@/components/dashboards/ExpandedWidgetDialog";
 import EditParameterMappingsDialog from "@/components/dashboards/EditParameterMappingsDialog";
 import VisualizationRenderer from "@/components/visualizations/VisualizationRenderer";
 
+import ExportModal from "@/components/ExportModal"
+
 import Widget from "./Widget";
 
-function visualizationWidgetMenuOptions({ widget, canEditDashboard, onParametersEdit }) {
+function visualizationWidgetMenuOptions({ widget, canEditDashboard, onParametersEdit, exportToGoogleSheets }) {
   const canViewQuery = currentUser.hasPermission("view_query");
   const canEditParameters = canEditDashboard && !isEmpty(invoke(widget, "query.getParametersDefs"));
   const widgetQueryResult = widget.getQueryResult();
@@ -56,6 +61,13 @@ function visualizationWidgetMenuOptions({ widget, canEditDashboard, onParameters
         </Link>
       ) : (
         "Download as Excel File"
+      )}
+    </Menu.Item>,
+    <Menu.Item key="export_to_gsheets" disabled={isQueryResultEmpty} onClick={exportToGoogleSheets}>
+      {!isQueryResultEmpty ? (
+        "Export to Google Sheets"
+      ) : (
+        "Export to Google Sheets"
       )}
     </Menu.Item>,
     (canViewQuery || canEditParameters) && <Menu.Divider key="divider" />,
@@ -316,9 +328,36 @@ class VisualizationWidget extends React.Component {
     }
   }
 
+  handleExportToGoogleSheets = () => {
+    this.setState({ modalVisible: true, loading: true, errorMessage: null, message: null });
+
+    const { widget } = this.props;
+    const queryResultsFetchLink = widget.getQueryResult().getLink(widget.getQuery().id, "gsheets-export");
+
+    fetch(queryResultsFetchLink)
+      .then((response) => response.json())
+      .then((result) => {
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        if (result.sheet_link) {
+          return result.sheet_link;
+        } else {
+          throw new Error("Unexpected response format. No sheet_link found.");
+        }
+      })
+      .then((blob) => {
+        this.setState({ loading: false, message: blob});
+      })
+      .catch((error) => {
+        this.setState({ loading: false, errorMessage: error.message });
+      });
+  };
+
+
   render() {
     const { widget, isLoading, isPublic, canEdit, isEditing, onRefresh } = this.props;
-    const { localParameters } = this.state;
+    const { localParameters, modalVisible, loading, errorMessage, message } = this.state;
     const widgetQueryResult = widget.getQueryResult();
     const isRefreshing = isLoading && !!(widgetQueryResult && widgetQueryResult.getStatus());
     const onParametersEdit = parameters => {
@@ -328,35 +367,45 @@ class VisualizationWidget extends React.Component {
     };
 
     return (
-      <Widget
-        {...this.props}
-        className="widget-visualization"
-        menuOptions={visualizationWidgetMenuOptions({
-          widget,
-          canEditDashboard: canEdit,
-          onParametersEdit: this.editParameterMappings,
-        })}
-        header={
-          <VisualizationWidgetHeader
-            widget={widget}
-            refreshStartedAt={isRefreshing ? widget.refreshStartedAt : null}
-            parameters={localParameters}
-            isEditing={isEditing}
-            onParametersUpdate={onRefresh}
-            onParametersEdit={onParametersEdit}
-          />
-        }
-        footer={
-          <VisualizationWidgetFooter
-            widget={widget}
-            isPublic={isPublic}
-            onRefresh={onRefresh}
-            onExpand={this.expandWidget}
-          />
-        }
-        tileProps={{ "data-refreshing": isRefreshing }}>
-        {this.renderVisualization()}
-      </Widget>
+      <>
+        <Widget
+          {...this.props}
+          className="widget-visualization"
+          menuOptions={visualizationWidgetMenuOptions({
+            widget,
+            canEditDashboard: canEdit,
+            onParametersEdit: this.editParameterMappings,
+            exportToGoogleSheets: this.handleExportToGoogleSheets,
+          })}
+          header={
+            <VisualizationWidgetHeader
+              widget={widget}
+              refreshStartedAt={isRefreshing ? widget.refreshStartedAt : null}
+              parameters={localParameters}
+              isEditing={isEditing}
+              onParametersUpdate={onRefresh}
+              onParametersEdit={onParametersEdit}
+            />
+          }
+          footer={
+            <VisualizationWidgetFooter
+              widget={widget}
+              isPublic={isPublic}
+              onRefresh={onRefresh}
+              onExpand={this.expandWidget}
+            />
+          }
+          tileProps={{ "data-refreshing": isRefreshing }}>
+          {this.renderVisualization()}
+        </Widget>
+
+        <ExportModal
+          onCancel={() => this.setState({ modalVisible: false })}
+          visible={modalVisible}
+          sheetLink={message}
+          isLoading={loading}
+          errorMessage={errorMessage}/>
+      </>
     );
   }
 }
