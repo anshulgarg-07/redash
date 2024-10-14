@@ -1,8 +1,9 @@
 import gspread
 import logging
-import json
+from requests import Session
 from gspread.exceptions import APIError
 from google.oauth2.service_account import Credentials
+from google.auth.transport.requests import Request as rq
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from redash import settings
@@ -17,6 +18,11 @@ SCOPES = [
 _delegated_gc_client={}
 _gc_client = ""
 
+
+class TimeoutSession(Session):
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", 300)
+        return super(TimeoutSession, self).request(*args, **kwargs)
 
 class GspreadClient(object):
     def __init__(self, user_email, sheet_id, sheet_name, allowed_emails, clear_cache=False):
@@ -73,7 +79,11 @@ class DelegatedGspreadClient(GspreadClient):
             cred_dict = settings.REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS.get(extract_company(self.user_email))
             credentials = Credentials.from_service_account_info(cred_dict, scopes=SCOPES)
             delegated_credentials = credentials.with_subject(self.user_email)
-            self.gc = gspread.Client(auth=delegated_credentials)
+            delegated_credentials.refresh(rq())
+            timeout_session = Session()
+            timeout_session.requests_session = TimeoutSession()
+            self.gc = gspread.Client(auth=delegated_credentials, session=timeout_session)
+            self.gc.login()
             _delegated_gc_client[self.user_email] = self.gc
 
     def drive_service(self):
@@ -109,14 +119,6 @@ class DelegatedGspreadClient(GspreadClient):
             logging.info(f"[Gsheets Export] New Gsheet created with ID: {self.sheet_id} and title: {sheet_name}")
             return self.sheet_id
         except HttpError as error:
-            raise error
-
-    def create_new_worksheet(self, spreadsheet, sheet_name):
-        try:
-            worksheet = spreadsheet.add_worksheet(title=sheet_name, rows="100", cols="20")
-            logging.info(f"[Gsheets Export] New worksheet added to gsheet : {self.sheet_id} with title: {sheet_name}")
-            return worksheet
-        except Exception as error:
             raise error
 
     def set_permissions(self, sheet_id, user):

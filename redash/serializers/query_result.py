@@ -3,19 +3,21 @@ import csv
 import xlsxwriter
 import uuid
 import logging
+import time
 from funcy import rpartial, project
 from dateutil.parser import isoparse as parse_date
 from redash.query_runner import TYPE_BOOLEAN, TYPE_DATE, TYPE_DATETIME
 from redash.authentication.org_resolving import current_org
 from redash.permissions import can_override_download_limit
 from redash import settings
+from redash import models
 from datetime import datetime, timedelta, timezone
 from redash.tasks.audit_downloads import enqueue_download_audit
 from redash.settings import ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING
-from redash import models
 from redash.utils.gsheets import ClientFactory, DelegatedGspreadClient
 from redash import settings
 from redash.utils import extract_company
+import json
 
 IST_OFFSET = timedelta(hours=5, minutes=30)
 OWNER_EMAIL = settings.REDASH_GOOGLE_SHEETS_OWNER_EMAIL
@@ -107,78 +109,58 @@ def fetch_gsheets_client(sheet_id: str = None, current_user=OWNER_EMAIL) -> Dele
     )
     return client
 
-def export_serialized_results_to_gsheet(query_result, current_user, query, query_result_id, current_org_id, query_id, query_name):
+def export_serialized_results_to_gsheet(query_result, current_user, query, query_result_id, current_org_id):
     gsheet_id = ""
-    sheet_name = f"Redash-download-{str(datetime.now())}"
-    if query_id:
-        gsheet_id = models.Query.get_gsheet_by_id(query_id)
-        sheet_name = f"Redash-download-{query_id}"
+    sheet_name = f"[{current_user.email}] Redash-download-{str(datetime.now())}"
     try:
         client = fetch_gsheets_client(sheet_id=gsheet_id)
     except Exception as e:
         logging.warn("[Gsheets Export] Error fetching client: {e}".format(e=str(e)))
     try:
-        if not gsheet_id or gsheet_id == "":
-            logging.info("[Gsheets Export] No existing gsheet found, creating a new Google Spreadsheet.")
-            client.get()
-            gsheet_id = client.create_new_spreadsheet(sheet_name=sheet_name)
-            if query_id:
-                models.Query.set_gsheet_to_query_options(query_id, gsheet_id)
-            client.set_permissions(gsheet_id, current_user.email)
-            client.add_drive_labels(gsheet_id, labels=["Lvjzj2dSK24gZxerKnm5LeQhciVxhCAv8XpSNNEbbFcb", "sKqKqy2zyrPKOH5El085hgnHjQQhI89fQnhSNNEbbFcb"])
-            upload_data_to_gsheet(client, query_result, gsheet_id, sheet_name, current_user.email, query, query_result_id, current_org_id)
-        else:
-            logging.info(f"[Gsheets Export] Using existing spreadsheet with id {gsheet_id}")
-            client.get()
-            wb = client.gc.open_by_key(gsheet_id)
-            editors = client.get_editors(wb)
-            if current_user.email not in editors:
-                logging.info(f"[Gsheets Export] User {current_user.email} does not have editor access to sheet {gsheet_id}. Granting access.")
-                client.set_permissions(gsheet_id, current_user.email)
-            worksheet_name = get_worksheet_name(query_name)
-            client.create_new_worksheet(wb, sheet_name=worksheet_name)
-            upload_data_to_gsheet(client, query_result, gsheet_id, worksheet_name, current_user.email, query, query_result_id, current_org_id)
+        client.get()
+        gsheet_id = client.create_new_spreadsheet(sheet_name=sheet_name)
+        client.set_permissions(gsheet_id, current_user.email)
+        client.add_drive_labels(gsheet_id, labels=["Lvjzj2dSK24gZxerKnm5LeQhciVxhCAv8XpSNNEbbFcb", "sKqKqy2zyrPKOH5El085hgnHjQQhI89fQnhSNNEbbFcb"])
+        wb = client.gc.open_by_key(gsheet_id)
+        time.sleep(1)
+        upload_data_to_gsheet(wb, query_result, sheet_name, current_user.email, query, query_result_id, current_org_id)
         return sheet_url_from_id(gsheet_id)
     except Exception as e:
         logging.error(f"[Gsheets Export] Failed: The export of data to gsheet {gsheet_id} failed because of error: {str(e)}")
         return {"error": f"Export to Google Sheet failed: {str(e)}"}
 
 
-def upload_data_to_gsheet(client, query_result, sheet_id, sheet_name, user, query, query_result_id, current_org_id):
+def upload_data_to_gsheet(wb, query_result, sheet_name, user, query, query_result_id, current_org_id):
     try:
         query_data = query_result.data
-        column_names = []
-        for c, col in enumerate(query_data["columns"]):
-            column_names.append(col.get("name"))
-        data = []
-        data.append(column_names)
+        column_names = [col.get("name") for col in query_data["columns"]]
+        data = [column_names]
         current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
         export_data = query_data["rows"]
 
-        if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-            enqueue_download_audit(push_id=uuid.uuid4(), user=user, query=query, time=current_ist_time, format=format, limit=len(export_data), query_result_id=query_result_id, current_org_id=current_org_id, source="export")
-
-        for r, row in enumerate(export_data):
+        for row in query_data["rows"]:
             row_data = []
-            for c, name in enumerate(column_names):
+            for name in column_names:
                 val = row.get(name, "")
-                row_data.append(val)
+                val = "" if val is None else val
+                if isinstance(val, (dict, list)):
+                    val = str(val)
+                row_data.append(val.encode('utf-8') if isinstance(val, str) else str(val))
             data.append(row_data)
-
-        body = {
-            'values': data
-        }
-        result = client.sheets_service().spreadsheets().values().update(
-            spreadsheetId=sheet_id,
-            range=f"{sheet_name}!A1",
-            valueInputOption='RAW',
-            body=body
-        ).execute()
+        sh = wb.worksheet(sheet_name)
+        sh.clear
+        res = sh.batch_update([{
+            "range": "A1",
+            "values": data,
+        }],
+        value_input_option="USER_ENTERED")
+        if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
+            enqueue_download_audit(push_id=uuid.uuid4(), user=user, query=query, time=current_ist_time, format="gsheets", limit=len(export_data), query_result_id=query_result_id, current_org_id=current_org_id, source="export")
+        logging.info(f"[Gsheets Export] Response: {json.dumps(res)} while pushing to sheet {sheet_name}")
         logging.info(f"[Gsheets Export] Successfully uploaded query results to Google Sheet.")
-        logging.info(f"{result.get('updatedCells')} cells updated in {sheet_name}.")
 
     except Exception as e:
-        logging.warn(f"[Gsheets Export] Error while uploading data to GSheet: {str(e)}")
+        logging.warn(f"[Gsheets Export] Error while uploading data to Gsheet: {str(e)}")
         raise e
 
 

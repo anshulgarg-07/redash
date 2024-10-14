@@ -89,9 +89,9 @@ def enqueue_download_audit(push_id, user, query, time, format, limit, query_resu
                 queue_name = "push_to_jumbo"
 
                 queue = Queue(queue_name)
-                logger.info(f"Enqueing push_to_jumbo job for query {query} in {queue_name}")
+                logger.info(f"Enqueing push_to_jumbo job in {queue_name}")
                 result = queue.enqueue(
-                    push_to_jumbo, push_id, user, query, time, format, limit, query_result_id, current_org_id, source
+                    push_to_jumbo, push_id, user, time, format, limit, query_result_id, current_org_id, source
                 )
                 job = PushToJumboTask(job=result)
                 logger.info("[%s] Created push_to_jumbo job: %s", push_id, job.id)
@@ -112,7 +112,7 @@ def enqueue_download_audit(push_id, user, query, time, format, limit, query_resu
     return job
 
 
-def push_to_jumbo(push_id, user, query, time, format, limit, query_result_id, current_org_id, source):
+def push_to_jumbo(push_id, user, time, format, limit, query_result_id, current_org_id, source):
     try:
         logger.info(f"[push_to_jumbo] Querying query_results for query_result_id: {query_result_id}")
         if current_org_id:
@@ -143,7 +143,7 @@ def push_to_jumbo(push_id, user, query, time, format, limit, query_result_id, cu
             "total_row_count": limit,
             "format": format,
             "columns": columns,
-            "query": query,
+            "query": query_result.query_text,
             "data_path": s3_data_path,
             "redash_type": settings.REDASH_NAME,
             "source": source
