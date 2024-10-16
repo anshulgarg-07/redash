@@ -16,6 +16,7 @@ import useFullscreenHandler from "../../../lib/hooks/useFullscreenHandler";
 import useRefreshRateHandler from "./useRefreshRateHandler";
 import useEditModeHandler from "./useEditModeHandler";
 import { policy } from "@/services/policy";
+import useDidMountEffect from "./useDidMountEffect";
 
 export { DashboardStatusEnum } from "./useEditModeHandler";
 
@@ -128,7 +129,7 @@ function useDashboard(dashboardData) {
   dashboardRef.current = dashboard;
 
   const loadDashboard = useCallback(
-    (forceRefresh = canRefreshDashboard, updatedParameters = []) => {
+    (forceRefresh = canRefreshDashboard && dashboard.settings.should_force_refresh_on_load, updatedParameters = []) => {
       const affectedWidgets = getAffectedWidgets(dashboardRef.current.widgets, updatedParameters);
       const loadWidgetPromises = compact(
         affectedWidgets.map(widget => loadWidget(widget, forceRefresh).catch(error => error))
@@ -140,7 +141,7 @@ function useDashboard(dashboardData) {
         setFilters(updatedFilters);
       });
     },
-    [canRefreshDashboard, loadWidget]
+    [canRefreshDashboard, loadWidget, dashboard]
   );
 
   const refreshDashboard = useCallback(
@@ -149,12 +150,10 @@ function useDashboard(dashboardData) {
         if (canRefreshDashboard) {
           setRefreshing(true);
           loadDashboard(true, updatedParameters).finally(() => setRefreshing(false));
-        } else {
-          alert(getDashboardRestrictedRefreshAlertMessage)
         }
       }
     },
-    [refreshing, loadDashboard, canRefreshDashboard, getDashboardRestrictedRefreshAlertMessage]
+    [refreshing, loadDashboard, canRefreshDashboard]
   );
 
   const archiveDashboard = useCallback(() => {
@@ -216,14 +215,15 @@ function useDashboard(dashboardData) {
     document.title = dashboard.name;
   }, [dashboard.name]);
 
-  // reload dashboard when filter option changes
-  useEffect(() => {
+  const func = () => {
     if (canRefreshDashboard) {
       loadDashboard();
     } else {
       alert(getDashboardRestrictedRefreshAlertMessage)
     }
-  }, [dashboard.dashboard_filters_enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
+  // reload dashboard when filter option changes
+  useDidMountEffect(func, [dashboard.dashboard_filters_enabled])
 
   return {
     dashboard,

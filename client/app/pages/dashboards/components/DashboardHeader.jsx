@@ -66,6 +66,8 @@ function RefreshButton({ dashboardConfiguration }) {
   const { refreshRate, setRefreshRate, disableRefreshRate, refreshing, refreshDashboard } = dashboardConfiguration;
   const allowedIntervals = policy.getDashboardRefreshIntervals();
   const refreshRateOptions = clientConfig.dashboardRefreshIntervals;
+  const canRefreshDashboard = policy.canRefresh(dashboardConfiguration.dashboard)
+  const getDashboardRestrictedRefreshAlertMessage = policy.getDashboardRestrictedRefreshAlertMessage(dashboardConfiguration.dashboard)
   const onRefreshRateSelected = ({ key }) => {
     const parsedRefreshRate = parseFloat(key);
     if (parsedRefreshRate) {
@@ -78,7 +80,9 @@ function RefreshButton({ dashboardConfiguration }) {
   return (
     <Button.Group>
       <Tooltip title={refreshRate ? `Auto Refreshing every ${durationHumanize(refreshRate)}` : null}>
-        <Button type={buttonType(refreshRate)} onClick={() => refreshDashboard()}>
+        <Button type={buttonType(refreshRate)} onClick={() =>
+          canRefreshDashboard ? refreshDashboard() : alert(getDashboardRestrictedRefreshAlertMessage)
+          }>
           <i className={cx("zmdi zmdi-refresh m-r-5", { "zmdi-hc-spin": refreshing })} aria-hidden="true" />
           {refreshRate ? durationHumanize(refreshRate) : "Refresh"}
         </Button>
@@ -87,7 +91,7 @@ function RefreshButton({ dashboardConfiguration }) {
         trigger={["click"]}
         placement="bottomRight"
         overlay={
-          <Menu onClick={onRefreshRateSelected} selectedKeys={[`${refreshRate}`]}>
+          <Menu onClick={(e) => canRefreshDashboard ? onRefreshRateSelected(e) : alert(getDashboardRestrictedRefreshAlertMessage)} selectedKeys={[`${refreshRate}`]}>
             {refreshRateOptions.map(option => (
               <Menu.Item key={`${option}`} disabled={!includes(allowedIntervals, option)}>
                 {durationHumanize(option)}
