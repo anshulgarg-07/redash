@@ -125,6 +125,10 @@ def push_to_jumbo(push_id, user, time, format, limit, query_result_id, current_o
         query_data = query_result.data
         download_data = query_data["rows"][:limit]
         columns = query_data["columns"]
+        for col in columns:
+            col["name"] = str(col["name"])
+            col["friendly_name"] = str(col["friendly_name"])
+            col["type"] = str(col["type"])
         logger.info(f"[push_to_jumbo] Processing task for user: {user} downloading {limit} rows")
         dt = time.strftime('%Y%m%d')
         logging_table_path = settings.DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH
