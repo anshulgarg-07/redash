@@ -62,8 +62,17 @@ export function filterData(rows, filters = []) {
       })
     );
   }
+  const castedResult = result.map(row => {
+    const castedRow = Object.keys(row).reduce((acc, key) => {
+      const value = row[key];
+      if(value !== null) acc[key] = String(value)
+      else acc[key] = ""
+      return acc;
+    }, {});
 
-  return result;
+    return castedRow;
+  });
+  return castedResult;
 }
 
 function Filters({ filters, onChange }) {
