@@ -209,9 +209,17 @@ def get_gsheet(user_email, sheet_id, sheet_name, allowed_emails, clear_cache=Fal
         )
         logging.info(f"the client in get_gsheet is {client}")
         gc = client.get()
+        if settings.REDASH_PROTECTED_DESTINATION_SYNC_ENABLED and isinstance(client, DelegatedGspreadClient):
+            service = client.drive_service()
+            file = service.files().listLabels(
+                fileId=sheet_id,
+            ).execute()
+            label_exists = 'labels' in file and any(label['id'] == 'sKqKqy2zyrPKOH5El085hgnHjQQhI89fQnhSNNEbbFcb' for label in file['labels'])
+            if not label_exists:
+                raise Exception("The provided gsheet is not protected under Data Security label, please enter a valid sheet id")
     except Exception as e:
         logging.warn("Error: {e}".format(e=str(e)))
-        raise Exception("There was some issue while creating the gspread client. Please try again or reach out to the administrator")
+        raise Exception(f"There was some issue while creating the gspread client. Error: {e}")
     try:
         sh = client.get_gsheet()
     except APIError as e:

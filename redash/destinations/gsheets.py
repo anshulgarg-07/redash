@@ -115,7 +115,7 @@ class Gsheets(BaseDestination):
                      .format(name=e.message))
         except APIError as e:
             logging.warning("Error: {e}".format(e=str(e)))
-            error = str(e.message["message"])
+            error = str(e.message)
         except Exception as e:
             logging.warning("Error: {e}".format(e=str(e)))
             error = str(e)
