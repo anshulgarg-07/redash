@@ -1547,6 +1547,7 @@ class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
         user = User.query.filter(User.id == user_id).first()
         visualization = Visualization.query.filter(Visualization.id == self.visualization_id).first()
         query_id = visualization.query_id
+        query_result_id = visualization.query_rel.latest_query_data_id
         query_result = visualization.query_rel.latest_query_data.data
         rows = len(query_result['rows'])
         columns = len(query_result['columns'])
@@ -1554,7 +1555,7 @@ class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
         google_apps_domains = Organization.query.filter(Organization.id == 1).first().settings.get("google_apps_domains", None)
         logging.info("Syncing destination ID: %s", self.id)
         error = self.destination.sync_visualization(query_result=query_result,
-                                                    options=self.options, user_email=user.email, query_id=query_id, allowed_emails=google_apps_domains)
+                                                    options=self.options, user_email=user.email, query_id=query_id, allowed_emails=google_apps_domains, query_result_id=query_result_id)
         sync_duration = time.time() - started_at
 
         DestinationSyncHistory.store_result(

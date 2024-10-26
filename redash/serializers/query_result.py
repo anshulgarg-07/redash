@@ -155,7 +155,7 @@ def upload_data_to_gsheet(wb, query_result, sheet_name, user, query, query_resul
         }],
         value_input_option="USER_ENTERED")
         if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
-            enqueue_download_audit(push_id=uuid.uuid4(), user=user, query=query, time=current_ist_time, format="gsheets", limit=len(export_data), query_result_id=query_result_id, current_org_id=current_org_id, source="export")
+            enqueue_download_audit(push_id=uuid.uuid4(), user=user, query=query, time=current_ist_time, format="gsheets", limit=len(query_data["rows"]), query_result_id=query_result_id, current_org_id=current_org_id, source="export")
         logging.info(f"[Gsheets Export] Response: {json.dumps(res)} while pushing to sheet {sheet_name}")
         logging.info(f"[Gsheets Export] Successfully uploaded query results to Google Sheet.")
 
