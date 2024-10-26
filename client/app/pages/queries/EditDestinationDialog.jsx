@@ -168,7 +168,7 @@ function EditDestinationDialog({ dialog, query }) {
     // TODO: Do not hard code this email and try to pass via parameters
     return (
       // eslint-disable-next-line react/jsx-no-target-blank
-      <div className="m-b-20">To send data to a Google Sheet, please make sure you have editor access to the respective sheet and the sheet belong to the organization. Also, checkout how to add a destination <a href="https://data.grofer.io/how-to/redash/destinations/gsheets" target="_blank">here</a>.</div>
+      <div className="m-b-20">To send data to a Google Sheet, please make sure you have editor access to the respective sheet and the sheet belong to the organization.</div>
     );
   }
 
