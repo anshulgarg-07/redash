@@ -135,8 +135,7 @@ def upload_data_to_gsheet(wb, query_result, sheet_name, user, query, query_resul
         query_data = query_result.data
         column_names = [col.get("name") for col in query_data["columns"]]
         data = [column_names]
-        current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
-        export_data = query_data["rows"]
+        current_ist_time = datetime.now(timezone.utc)
 
         for row in query_data["rows"]:
             row_data = []
@@ -176,7 +175,7 @@ def serialize_query_result_to_dsv(query_result, delimiter, current_user, format,
     
     download_limit = len(query_data['rows']) if can_override_download_limit() else settings.QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT
     download_data = query_data["rows"][:download_limit]
-    current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
+    current_ist_time = datetime.now(timezone.utc)
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
         enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id, source="download")
@@ -204,7 +203,7 @@ def serialize_query_result_to_xlsx(query_result, current_user, format, query, qu
 
     download_limit = len(query_data['rows']) if can_override_download_limit() else settings.QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT
     download_data = query_data["rows"][:download_limit]
-    current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
+    current_ist_time = datetime.now(timezone.utc)
 
     if ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
         enqueue_download_audit(push_id=uuid.uuid4(), user=current_user.email, query=query, time=current_ist_time, format=format, limit=len(download_data), query_result_id=query_result_id, current_org_id=current_org_id, source="download")

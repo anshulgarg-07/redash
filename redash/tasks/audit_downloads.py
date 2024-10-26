@@ -11,8 +11,10 @@ import pandas as pd
 import uuid
 from rq.job import JobStatus
 from sqlalchemy.orm.exc import NoResultFound
+from datetime import timedelta
 
 logger = get_job_logger(__name__)
+IST_OFFSET = timedelta(hours=5, minutes=30)
 
 def _job_lock_id(job_id):
     return "push_to_jumbo:d:%s" % (job_id)
@@ -130,7 +132,7 @@ def push_to_jumbo(push_id, user, time, format, limit, query_result_id, current_o
             col["friendly_name"] = str(col["friendly_name"])
             col["type"] = str(col["type"])
         logger.info(f"[push_to_jumbo] Processing task for user: {user} downloading {limit} rows")
-        dt = time.strftime('%Y%m%d')
+        dt = (time + IST_OFFSET).strftime('%Y%m%d')
         logging_table_path = settings.DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH
         data_path = settings.DOWNLOAD_DATA_ARCHIVE_S3_PATH
         unique_table_file_name = f"part-{str(uuid.uuid4())}.parquet"
@@ -142,7 +144,7 @@ def push_to_jumbo(push_id, user, time, format, limit, query_result_id, current_o
             "id": str(uuid.uuid1()),
             "user": user,
             "timestamp": int(time.timestamp()),
-            "dt": time.strftime('%Y%m%d'),
+            "dt": dt,
             "sample_data": json.dumps(download_data[:10]),
             "total_row_count": limit,
             "format": format,

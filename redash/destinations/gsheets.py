@@ -11,8 +11,6 @@ from redash import settings, utils
 from redash.tasks.audit_downloads import enqueue_download_audit
 import uuid
 
-IST_OFFSET = timedelta(hours=5, minutes=30)
-
 class Gsheets(BaseDestination):
     visualization_enabled = True
     alert_enabled = False
@@ -101,7 +99,7 @@ class Gsheets(BaseDestination):
                 data,
                 raw=False
             )
-            current_ist_time = datetime.now(timezone.utc) + IST_OFFSET
+            current_ist_time = datetime.now(timezone.utc)
             if settings.ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING:
                 enqueue_download_audit(push_id=uuid.uuid4(), user=user_email, query="", time=current_ist_time, format="gsheets", limit=len(query_result["rows"]), query_result_id=query_result_id, current_org_id=1, source="destination-sync")
             sh.insert_note(
