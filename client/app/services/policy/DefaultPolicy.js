@@ -62,7 +62,19 @@ export default class DefaultPolicy {
     return get(object, "can_edit", false);
   }
 
+  canRefresh(object) {
+    return get(object, "can_refresh", true)
+  }
+
+  getDashboardRestrictedRefreshAlertMessage(object) {
+    return get(object, "dashboard_refresh_restricted_alert_message", "")
+  }
+
   canRun() {
     return true;
+  }
+
+  isDestinationSyncEnabled(object) {
+    return get(object, "is_destination_sync_enabled", false)
   }
 }

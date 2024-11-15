@@ -255,6 +255,8 @@ class QueryListResource(BaseQueryListResource):
         query_def["data_source"] = data_source
         query_def["org"] = self.current_org
         query_def["is_draft"] = True
+        if str(data_source.id) in settings.TAG_DATA_SOURCES:
+            query_def['tags'] = settings.AURORA_TAGS
         query = models.Query.create(**query_def)
         models.db.session.add(query)
         models.db.session.commit()
@@ -404,6 +406,8 @@ class QueryResource(BaseResource):
 
         result = QuerySerializer(q, with_visualizations=True).serialize()
         result["can_edit"] = can_modify(q, self.current_user)
+        result["banner_text"] = settings.TOP_BANNER_TEXT
+        result['is_destination_sync_enabled'] = settings.DESTINATION_SYNC_ENABLED
 
         self.record_event(
             {"action": "view", "object_id": query_id, "object_type": "query"}

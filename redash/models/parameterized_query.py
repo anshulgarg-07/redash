@@ -1,10 +1,14 @@
 import pystache
+import sqlparse
 from functools import partial
 from numbers import Number
 from redash.utils import mustache_render, json_loads
 from redash.permissions import require_access, view_only
+from redash.settings import TEXT_FILTER_STOP_WORDS
 from funcy import distinct
 from dateutil.parser import parse
+
+from six import string_types, text_type
 
 
 def _pluck_name_and_value(default_column, row):
@@ -109,6 +113,18 @@ def _is_date_range(obj):
         return _is_date(obj["start"]) and _is_date(obj["end"])
     except (KeyError, TypeError):
         return False
+    
+
+def _is_valid_text_param(value):
+    if isinstance(value, string_types):
+        parsed = sqlparse.parse(value)[0]
+        words = {str(token).upper() for token in parsed.tokens}
+        if words.intersection(TEXT_FILTER_STOP_WORDS):
+            return False
+        else:
+            return True
+    else:
+        return False
 
 
 def _is_value_within_options(value, dropdown_options, allow_list=False):
@@ -159,7 +175,7 @@ class ParameterizedQuery(object):
             enum_options = enum_options.split("\n")
 
         validators = {
-            "text": lambda value: isinstance(value, str),
+            "text": _is_valid_text_param,
             "number": _is_number,
             "enum": lambda value: _is_value_within_options(
                 value, enum_options, allow_multiple_values
@@ -183,8 +199,13 @@ class ParameterizedQuery(object):
 
     @property
     def is_safe(self):
-        text_parameters = [param for param in self.schema if param["type"] == "text"]
-        return not any(text_parameters)
+        flag = True
+        for filter_meta in self.schema:
+            if filter_meta["type"] == "text" and filter_meta["value"] is not None:
+                if not _is_valid_text_param(filter_meta["value"]):
+                    flag = False
+                    break
+        return flag
 
     @property
     def missing_params(self):

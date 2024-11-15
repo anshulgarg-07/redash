@@ -9,7 +9,7 @@ export const currentUser = {
 
   canEdit(object) {
     const userId = object.user_id || (object.user && object.user.id);
-    return this.isAdmin || (userId && userId === this.id);
+    return this.isAdmin || this.isPseudoAdmin || (userId && userId === this.id);
   },
 
   canCreate() {
@@ -27,6 +27,10 @@ export const currentUser = {
 
   get isAdmin() {
     return this.hasPermission("admin");
+  },
+
+  get isPseudoAdmin() {
+    return this.hasPermission('pseudo_admin');
   },
 
   set isAdmin(isAdmin) {

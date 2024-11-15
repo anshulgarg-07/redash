@@ -16,6 +16,7 @@ import useFullscreenHandler from "../../../lib/hooks/useFullscreenHandler";
 import useRefreshRateHandler from "./useRefreshRateHandler";
 import useEditModeHandler from "./useEditModeHandler";
 import { policy } from "@/services/policy";
+import useDidMountEffect from "./useDidMountEffect";
 
 export { DashboardStatusEnum } from "./useEditModeHandler";
 
@@ -41,11 +42,13 @@ function useDashboard(dashboardData) {
   const [gridDisabled, setGridDisabled] = useState(false);
   const globalParameters = useMemo(() => dashboard.getParametersDefs(), [dashboard]);
   const canEditDashboard = !dashboard.is_archived && policy.canEdit(dashboard);
+  const canRefreshDashboard = policy.canRefresh(dashboard)
+  const getDashboardRestrictedRefreshAlertMessage = policy.getDashboardRestrictedRefreshAlertMessage(dashboard)
   const isDashboardOwnerOrAdmin = useMemo(
     () =>
       !dashboard.is_archived &&
       has(dashboard, "user.id") &&
-      (currentUser.id === dashboard.user.id || currentUser.isAdmin),
+      (currentUser.id === dashboard.user.id || currentUser.isAdmin || currentUser.isPseudoAdmin),
     [dashboard]
   );
   const hasOnlySafeQueries = useMemo(
@@ -126,7 +129,7 @@ function useDashboard(dashboardData) {
   dashboardRef.current = dashboard;
 
   const loadDashboard = useCallback(
-    (forceRefresh = false, updatedParameters = []) => {
+    (forceRefresh = canRefreshDashboard && dashboard.settings.should_force_refresh_on_load, updatedParameters = []) => {
       const affectedWidgets = getAffectedWidgets(dashboardRef.current.widgets, updatedParameters);
       const loadWidgetPromises = compact(
         affectedWidgets.map(widget => loadWidget(widget, forceRefresh).catch(error => error))
@@ -138,17 +141,19 @@ function useDashboard(dashboardData) {
         setFilters(updatedFilters);
       });
     },
-    [loadWidget]
+    [canRefreshDashboard, loadWidget, dashboard]
   );
 
   const refreshDashboard = useCallback(
     updatedParameters => {
       if (!refreshing) {
-        setRefreshing(true);
-        loadDashboard(true, updatedParameters).finally(() => setRefreshing(false));
+        if (canRefreshDashboard) {
+          setRefreshing(true);
+          loadDashboard(true, updatedParameters).finally(() => setRefreshing(false));
+        }
       }
     },
-    [refreshing, loadDashboard]
+    [refreshing, loadDashboard, canRefreshDashboard]
   );
 
   const archiveDashboard = useCallback(() => {
@@ -204,16 +209,21 @@ function useDashboard(dashboardData) {
   useEffect(() => {
     setDashboard(dashboardData);
     loadDashboard();
-  }, [dashboardData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dashboardData, canRefreshDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     document.title = dashboard.name;
   }, [dashboard.name]);
 
+  const func = () => {
+    if (canRefreshDashboard) {
+      loadDashboard();
+    } else {
+      alert(getDashboardRestrictedRefreshAlertMessage)
+    }
+  }
   // reload dashboard when filter option changes
-  useEffect(() => {
-    loadDashboard();
-  }, [dashboard.dashboard_filters_enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  useDidMountEffect(func, [dashboard.dashboard_filters_enabled])
 
   return {
     dashboard,

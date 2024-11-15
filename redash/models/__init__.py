@@ -5,6 +5,8 @@ import time
 import numbers
 import pytz
 
+from typing import List, Union
+
 from sqlalchemy import distinct, or_, and_, UniqueConstraint, cast
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.event import listens_for
@@ -17,7 +19,8 @@ from sqlalchemy_utils.types import TSVectorType
 from sqlalchemy_utils.models import generic_repr
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 
-from redash import redis_connection, utils, settings
+from redash import redis_connection, utils, settings, statsd_client
+from redash.settings import REDASH_DB_CATALOG_MAPPING, REDASH_VIEW_CATALOG_LINK, DATASOURCE_SECRET_KEY, DEFAULT_SQL_MAX_ROWS_LIMIT, FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT, INTERVAL_LIMIT, WEEKEND_FREQUENCY, REDASH_REDUCED_WEEKEND_RUNS
 from redash.destinations import (
     get_configuration_schema_for_destination_type,
     get_destination,
@@ -94,7 +97,7 @@ class DataSource(BelongsToOrgMixin, db.Model):
         "encrypted_options",
         ConfigurationContainer.as_mutable(
             EncryptedConfiguration(
-                db.Text, settings.DATASOURCE_SECRET_KEY, FernetEngine
+                db.Text, DATASOURCE_SECRET_KEY, FernetEngine
             )
         ),
     )
@@ -122,7 +125,9 @@ class DataSource(BelongsToOrgMixin, db.Model):
             "syntax": self.query_runner.syntax,
             "paused": self.paused,
             "pause_reason": self.pause_reason,
-            "supports_auto_limit": self.query_runner.supports_auto_limit
+            "supports_auto_limit": self.query_runner.supports_auto_limit,
+            "sql_max_rows_limit": self.options.get("sql_max_rows_limit",
+                                                   DEFAULT_SQL_MAX_ROWS_LIMIT) if FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT else None
         }
 
         if all:
@@ -152,7 +157,7 @@ class DataSource(BelongsToOrgMixin, db.Model):
     def create_with_group(cls, *args, **kwargs):
         data_source = cls(*args, **kwargs)
         data_source_group = DataSourceGroup(
-            data_source=data_source, group=data_source.org.default_group
+            data_source=data_source, group=data_source.org.admin_group
         )
         db.session.add_all([data_source, data_source_group])
         return data_source
@@ -192,11 +197,10 @@ class DataSource(BelongsToOrgMixin, db.Model):
         out_schema = None
         if not refresh:
             out_schema = self.get_cached_schema()
-
         if out_schema is None:
             query_runner = self.query_runner
-            schema = query_runner.get_schema(get_stats=refresh)
-
+            schema = sorted(query_runner.get_schema(get_stats=refresh), key=lambda t: t['name'])
+            schema = self.add_catalog_link(schema)
             try:
                 out_schema = self._sort_schema(schema)
             except Exception:
@@ -206,12 +210,19 @@ class DataSource(BelongsToOrgMixin, db.Model):
                 out_schema = schema
             finally:
                 redis_connection.set(self._schema_key, json_dumps(out_schema))
-
         return out_schema
+
+    def add_catalog_link(self, schema: Union[List[dict], dict]):
+        keys = [str(i) for i in REDASH_DB_CATALOG_MAPPING.keys()]
+        if str(self.id) in keys:
+            data_platform=str(REDASH_DB_CATALOG_MAPPING[str(self.id)])
+            for table in schema:
+                table['catalog'] = REDASH_VIEW_CATALOG_LINK.format(data_platform=data_platform, full_table_name= table.get('name'))
+        return schema
 
     def _sort_schema(self, schema):
         return [
-            {"name": i["name"], "columns": sorted(i["columns"], key=lambda x: x["name"] if isinstance(x, dict) else x)}
+            {"name": i["name"], "columns": sorted(i["columns"], key=lambda x: x["name"] if isinstance(x, dict) else x), "catalog": i["catalog"]}
             for i in sorted(schema, key=lambda x: x["name"])
         ]
 
@@ -662,17 +673,26 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
                 retrieved_at = scheduled_queries_executions.get(query.id) or (
                     query.latest_query_data and query.latest_query_data.retrieved_at
                 )
+                interval = query.schedule.get("interval")
+                weekend_query = REDASH_REDUCED_WEEKEND_RUNS and query.tags and ("reduced-weekend-runs" in query.tags)
+                day = (utils.utcnow() + datetime.timedelta(hours=5, minutes=30)).weekday()
+                if weekend_query and day >= 5 and interval < INTERVAL_LIMIT:
+                    interval = WEEKEND_FREQUENCY*interval
 
                 if should_schedule_next(
                     retrieved_at or now,
                     now,
-                    query.schedule["interval"],
+                    interval,
                     query.schedule["time"],
                     query.schedule["day_of_week"],
                     query.schedule_failures,
                 ):
                     key = "{}:{}".format(query.query_hash, query.data_source_id)
                     outdated_queries[key] = query
+                elif should_schedule_next(retrieved_at, now, query.schedule['interval'], query.schedule['time'],
+                                      query.schedule['day_of_week'], query.schedule_failures):
+                    logging.info("Query ID: {query_id} refresh skipped due to reduced weekend frequency".
+                             format(query_id=query.id))
             except Exception as e:
                 query.schedule["disabled"] = True
                 db.session.commit()
@@ -1365,7 +1385,7 @@ class NotificationDestination(BelongsToOrgMixin, db.Model):
         "encrypted_options",
         ConfigurationContainer.as_mutable(
             EncryptedConfiguration(
-                db.Text, settings.DATASOURCE_SECRET_KEY, FernetEngine
+                db.Text, DATASOURCE_SECRET_KEY, FernetEngine
             )
         ),
     )
@@ -1415,6 +1435,143 @@ class NotificationDestination(BelongsToOrgMixin, db.Model):
             alert, query, user, new_state, app, host, self.options
         )
 
+@generic_repr('id', 'synced_at', 'sync_type', 'sync_duration', 'user_id', 'status')
+class DestinationSyncHistory(BelongsToOrgMixin, db.Model):
+    id = Column(db.Integer, primary_key=True)
+    synced_at = Column(db.DateTime(True), default=db.func.now())
+    sync_type = Column(db.String(255))
+    sync_duration = Column(db.Integer)
+    destination_id = Column(db.Integer)
+    user_id = Column(db.Integer, db.ForeignKey("users.id"))
+    status = Column(db.String(255))
+    error_log = Column(db.Text, nullable=True)
+
+    __tablename__ = 'destination_sync_history'
+
+    def __str__(self):
+        return u"%d | %d | %s" % (self.id, self.destination_id, self.status)
+
+    @classmethod
+    def store_result(cls, synced_at, sync_type, sync_duration, destination_id, user_id, status, error_log, rows, columns):
+        destination_sync = cls(synced_at=synced_at,
+                            sync_type=sync_type,
+                            sync_duration=sync_duration,
+                            destination_id=destination_id,
+                            user_id=user_id,
+                            status=status,
+                            error_log=error_log)
+        db.session.add(destination_sync)
+        logging.info("Inserted sync job (%s) data; id=%s", destination_id, destination_sync.id)
+        destination = Destination.query.get(destination_id)
+        destination.last_destination_sync = destination_sync
+        destination.options["last_sync_rows"] = rows
+        destination.options["last_sync_columns"] = columns
+        # don't auto-update the updated_at timestamp
+        destination.skip_updated_at = True
+        db.session.add(destination)
+        logging.info("Updated destination (destination_id: %s) with sync details (%s).",
+                    destination_id, destination_sync.id)
+
+@generic_repr('id', 'name', 'type', 'visualization_id', 'user_id', 'last_modified_by_id', 'is_archived', 'options', 'last_destination_sync_id', 'created_at', 'updated_at')
+class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
+    id = Column(db.Integer, primary_key=True)
+    name = Column(db.String(255))
+    type = Column(db.String(255))
+    visualization_id = Column(db.Integer, db.ForeignKey("visualizations.id"))
+    user_id = Column(db.Integer, db.ForeignKey("users.id"))
+    user = db.relationship(User, foreign_keys=[user_id], lazy='select')
+    last_modified_by_id = Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    last_modified_by = db.relationship(User, backref="modified_destinations",
+                                       foreign_keys=[last_modified_by_id], lazy='select')
+    is_archived = Column(db.Boolean, default=False, index=True)
+    options = Column(ConfigurationContainer.as_mutable(Configuration))
+    last_destination_sync_id = Column(db.Integer, db.ForeignKey("destination_sync_history.id"), nullable=True)
+    last_destination_sync = db.relationship(DestinationSyncHistory, foreign_keys=[last_destination_sync_id])
+
+    __tablename__ = 'destinations'
+
+    def __str__(self):
+            return str(self.name)
+
+    @property
+    def destination(self):
+        return get_destination(self.type, self.options)
+
+    @classmethod
+    def get_by_id_and_org(cls, object_id, visualization, org):
+        destination = Destination.query.filter(Destination.id == object_id).filter(Destination.is_archived == False).one()
+        # TODO: Figure out if we can link it with org_id
+        # destination =  super(Destination, cls).get_by_id_and_org(object_id, org, Query)
+        if destination.visualization_id == visualization.id:
+            return destination
+        else:
+            raise ValueError
+
+    @classmethod
+    def all(cls, query=None, visualization=None):
+        if visualization:
+            destination_ids = (
+                        db.session
+                        .query(distinct(cls.id))
+                        .join(
+                            Visualization,
+                            Destination.visualization_id == Visualization.id
+                        ).filter(Visualization.id == visualization.id)
+                        .filter(Destination.is_archived == False)
+                    )
+            destinations = cls.query.filter(cls.id.in_(destination_ids)).order_by(cls.id.asc())
+        elif query is not None:
+            visualization_ids = (
+                db.session
+                .query(Visualization.id)
+                .filter(Visualization.query_id == query.id)
+            )
+            destination_ids = (
+                        db.session
+                        .query(distinct(cls.id))
+                        .join(
+                            Visualization,
+                            Destination.visualization_id == Visualization.id
+                        ).filter(Visualization.id.in_(visualization_ids))
+                        .filter(Destination.is_archived == False)
+                    )
+            destinations = cls.query.filter(cls.id.in_(destination_ids)).order_by(cls.id.asc())
+        else:
+            raise ValueError
+            #TODO : return destinations as paginated results ?
+        return destinations
+
+    def sync(self, user_id, sync_type):
+        schema = get_configuration_schema_for_destination_type(self.type)
+        self.options.set_schema(schema)
+        user = User.query.filter(User.id == user_id).first()
+        visualization = Visualization.query.filter(Visualization.id == self.visualization_id).first()
+        query_id = visualization.query_id
+        query_result_id = visualization.query_rel.latest_query_data_id
+        query_result = visualization.query_rel.latest_query_data.data
+        rows = len(query_result['rows'])
+        columns = len(query_result['columns'])
+        started_at = time.time()
+        google_apps_domains = Organization.query.filter(Organization.id == 1).first().settings.get("google_apps_domains", None)
+        logging.info("Syncing destination ID: %s", self.id)
+        error = self.destination.sync_visualization(query_result=query_result,
+                                                    options=self.options, user_email=user.email, query_id=query_id, allowed_emails=google_apps_domains, query_result_id=query_result_id)
+        sync_duration = time.time() - started_at
+
+        DestinationSyncHistory.store_result(
+            synced_at=utils.utcnow(),
+            sync_type=sync_type,
+            sync_duration=sync_duration,
+            destination_id=self.id,
+            user_id=user_id,
+            status="failed" if error else "finished",
+            error_log=error,
+            rows=self.options.get('last_sync_rows') if error else rows,
+            columns=self.options.get('last_sync_columns') if error else columns
+        )
+        db.session.commit()
+
+        return error
 
 @generic_repr("id", "user_id", "destination_id", "alert_id")
 class AlertSubscription(TimestampMixin, db.Model):
@@ -1509,8 +1666,14 @@ def init_db():
         org=default_org,
         type=Group.BUILTIN_GROUP,
     )
+    pseudo_admin_group = Group(
+        name='pseudo_admin',
+        permissions=['pseudo_admin'],
+        org=default_org,
+        type=Group.BUILTIN_GROUP,
+    )
 
-    db.session.add_all([default_org, admin_group, default_group])
+    db.session.add_all([default_org, admin_group, default_group, pseudo_admin_group])
     # XXX remove after fixing User.group_ids
     db.session.commit()
     return default_org, admin_group, default_group

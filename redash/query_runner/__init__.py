@@ -7,14 +7,13 @@ import socket
 import ipaddress
 from urllib.parse import urlparse
 
-from six import text_type
 from sshtunnel import open_tunnel
 from redash import settings, utils
 from redash.utils import json_loads, query_is_select_no_limit, add_limit_to_query
 from rq.timeouts import JobTimeoutException
 
 from redash.utils.requests_session import requests_or_advocate, requests_session, UnacceptableAddressException
-
+from redash.utils.sql_parse import ParsedQuery
 
 logger = logging.getLogger(__name__)
 
@@ -232,9 +231,15 @@ class BaseSQLQueryRunner(BaseQueryRunner):
             last_query = queries[-1]
             if query_is_select_no_limit(last_query):
                 queries[-1] = add_limit_to_query(last_query)
-            return combine_sql_statements(queries)
-        else:
-            return query_text
+            query_text = combine_sql_statements(queries)
+        should_enforce_limit = self.configuration.get('should_enforce_limit',
+                                                      settings.FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT)
+        if settings.FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT and should_enforce_limit:
+            parsed_query = ParsedQuery(query_text)
+            if parsed_query.is_select():
+                limit = self.configuration.get("sql_max_rows_limit", settings.DEFAULT_SQL_MAX_ROWS_LIMIT)
+                query_text = parsed_query.get_query_with_new_limit(limit)
+        return query_text
 
 
 class BaseHTTPQueryRunner(BaseQueryRunner):

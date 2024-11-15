@@ -14,6 +14,7 @@ import recordEvent from "@/services/recordEvent";
 import { ExecutionStatus } from "@/services/query-result";
 import routes from "@/services/routes";
 import notification from "@/services/notification";
+import TableDetailsDialog from "@/components/queries/TableDetailsDialog";
 import * as queryFormat from "@/lib/queryFormat";
 
 import QueryPageHeader from "./components/QueryPageHeader";
@@ -134,9 +135,11 @@ function QuerySource(props) {
     // choose data source id for new queries
     if (dataSourcesLoaded && queryFlags.isNew) {
       const firstDataSourceId = dataSources.length > 0 ? dataSources[0].id : null;
+      const selectedDataSourceId = parseInt(localStorage.getItem("lastSelectedDataSourceId")) || null;
+
       handleDataSourceChange(
         chooseDataSourceId(
-          [query.data_source_id, localStorage.getItem("lastSelectedDataSourceId"), firstDataSourceId],
+          [query.data_source_id, selectedDataSourceId, firstDataSourceId],
           dataSources
         )
       );
@@ -157,6 +160,12 @@ function QuerySource(props) {
       editorRef.current.paste(schemaItem);
     }
   }, []);
+
+  const handleShowTableDetails = (catalog) => {
+    TableDetailsDialog.showModal({
+      catalog,
+    });
+  };
 
   const [selectedText, setSelectedText] = useState(null);
 
@@ -229,6 +238,7 @@ function QuerySource(props) {
                 }
                 onSchemaUpdate={setSchema}
                 onItemSelect={handleSchemaItemSelect}
+                onShowTableDetails={handleShowTableDetails}
               />
             </div>
 
@@ -321,6 +331,7 @@ function QuerySource(props) {
                               value: dataSource.id,
                               onChange: handleDataSourceChange,
                               options: map(dataSources, ds => ({ value: ds.id, label: ds.name })),
+                              sql_max_rows_limit: dataSource.sql_max_rows_limit
                             }
                           : false
                       }
@@ -362,6 +373,7 @@ function QuerySource(props) {
                       error={executionError}
                       isCancelling={isExecutionCancelling}
                       onCancel={cancelExecution}
+                      queryResult={queryResult}
                     />
                   </div>
                 )}
@@ -377,7 +389,7 @@ function QuerySource(props) {
                       ))}
                     </div>
                   )}
-                  {loadedInitialResults && !(queryFlags.isNew && !queryResult) && (
+                  {loadedInitialResults && !isQueryExecuting && !isExecutionCancelling && !(queryFlags.isNew && !queryResult) && queryResult && !queryResult.getError() && (
                     <QueryVisualizationTabs
                       queryResult={queryResult}
                       visualizations={query.visualizations}

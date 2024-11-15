@@ -7,12 +7,13 @@ from rq.job import JobStatus
 from rq.timeouts import JobTimeoutException
 from rq.exceptions import NoSuchJobError
 
-from redash import models, redis_connection, settings
+from redash import models, redis_connection, settings, redis_ro_connection
 from redash.query_runner import InterruptException
 from redash.tasks.worker import Queue, Job
 from redash.tasks.alerts import check_alerts_for_query
+from redash.tasks.destinations import enqueue_destination
 from redash.tasks.failure_report import track_failure
-from redash.utils import gen_query_hash, json_dumps, utcnow
+from redash.utils import gen_query_hash, utcnow, json_loads
 from redash.worker import get_job_logger
 
 logger = get_job_logger(__name__)
@@ -25,6 +26,27 @@ def _job_lock_id(query_hash, data_source_id):
 
 def _unlock(query_hash, data_source_id):
     redis_connection.delete(_job_lock_id(query_hash, data_source_id))
+    
+def store_queue_name_job_id_pair(job_id, queue_name):
+    key_name = "queue_name:" + job_id
+    redis_connection.setex(key_name, 14400, queue_name)  # Giving TTL for the pair as 4 hours
+
+
+def get_queue_name_from_job_id(job_id):
+    key_name = "queue_name:" + job_id
+    queue_name = redis_connection.get(key_name)
+    return queue_name
+
+
+def get_wait_rank(job_id, queue_name):
+    if queue_name is not None:
+        all_jobs = redis_ro_connection.lrange(queue_name, 0, -1)
+        count = len(all_jobs)
+        for i, job in enumerate(all_jobs):
+            if json_loads(job)['headers']['id'] == job_id:
+                return count - i
+    else:
+        return "NA"
 
 
 def enqueue_query(
@@ -57,7 +79,7 @@ def enqueue_query(
                     if job_complete:
                         message = "job found is complete (%s)" % status
                     elif job_cancelled:
-                        message = "job found has ben cancelled"
+                        message = "job found has been cancelled"
                 except NoSuchJobError:
                     message = "job found has expired"
                     job_exists = False
@@ -182,7 +204,8 @@ class QueryExecutor(object):
         self._log_progress("executing_query")
 
         query_runner = self.data_source.query_runner
-        annotated_query = self._annotate_query(query_runner)
+        sql_limit_query = query_runner.apply_auto_limit(self.query, should_apply_auto_limit=False)
+        annotated_query = self._annotate_query(query_runner, sql_limit_query)
 
         try:
             data, error = query_runner.run_query(annotated_query, self.user)
@@ -233,21 +256,34 @@ class QueryExecutor(object):
             updated_query_ids = models.Query.update_latest_result(query_result)
 
             models.db.session.commit()  # make sure that alert sees the latest query result
-            self._log_progress("checking_alerts")
-            for query_id in updated_query_ids:
-                check_alerts_for_query.delay(query_id)
+            # Only send to destination when query is scheduled
+            if self.is_scheduled_query and settings.DESTINATION_SYNC_ENABLED:
+                destinations = models.Destination.all(query=self.query_model)
+                for destination in destinations:
+                    self._log_progress('syncing results to destination id: {d}'.format(d=destination.id))
+                    enqueue_destination(destination_id=destination.id, user_id=self.user.id, sync_type="SCHEDULED")
+                    self._log_progress('finished')
+
+            if settings.ENABLE_ALERTS:
+                self._log_progress('checking_alerts')
+                for query_id in updated_query_ids:
+                    check_alerts_for_query.delay(query_id)
             self._log_progress("finished")
 
             result = query_result.id
             models.db.session.commit()
             return result
 
-    def _annotate_query(self, query_runner):
+    def _annotate_query(self, query_runner, query):
         self.metadata["Job ID"] = self.job.id
         self.metadata["Query Hash"] = self.query_hash
         self.metadata["Scheduled"] = self.is_scheduled_query
+        if self.metadata.get('Query ID', 'adhoc') != 'adhoc':
+            self.metadata['Query Link'] = "https://{url}/queries/{id}".format(
+                url=settings.HOST, id=self.metadata['Query ID']
+            )
 
-        return query_runner.annotate_query(self.query, self.metadata)
+        return query_runner.annotate_query(query, self.metadata)
 
     def _log_progress(self, state):
         logger.info(

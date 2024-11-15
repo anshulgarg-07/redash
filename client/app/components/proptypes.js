@@ -28,7 +28,7 @@ export const RefreshScheduleDefault = {
   interval: null,
   time: null,
   day_of_week: null,
-  until: null,
+  until: moment().add(15, "days").format('YYYY-MM-DD'),
 };
 
 export const UserProfile = PropTypes.shape({

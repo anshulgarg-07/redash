@@ -206,6 +206,10 @@ def deprecated():
     return wrapper
 
 
+def extract_company(email):
+    return str(email.split('@')[-1].split('.')[0])
+
+
 def render_template(path, context):
     """ Render a template with context, without loading the entire app context.
     Using Flask's `render_template` function requires the entire app context to load, which in turn triggers any

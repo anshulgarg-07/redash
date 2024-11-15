@@ -1,0 +1,69 @@
+workDir: "app"
+virtualEnv: "redash-virtualenv"
+consulPath: "dse/redash-internal"
+vaultDatabasePath: "dse/postgres/prod-dse-tools/redash_de/redash_de_application_api"
+vaultApplicationPath: "dse/applications/redash_de"
+grofersIOComponentPrefix: "redash-internal"
+applicationHostName: "redash-internal-service-data.prod-sgp-k8s.grofer.io"
+
+frontend:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "3000m"
+      memory: "5Gi"
+    requests:
+      cpu: "1500m"
+      memory: "3Gi"
+
+service:
+  sslCert: arn:aws:acm:ap-southeast-1:442534439095:certificate/db7d6285-c5d5-4e8e-b94a-7792bcd03b05
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+
+celery:
+  workers:
+  - type: "beat"
+    name: "celerybeat"
+    replicaCount: 1
+    concurrency:
+    queueName:
+    maxTaskPerChild:
+    timeLimit:
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "100m"
+        memory: "0.5Gi"
+  - type: "worker"
+    name: "celerydefault"
+    replicaCount: 1
+    concurrency: 2
+    queueName: "celery,queries,scheduled_queries,destination_sync"
+    maxTaskPerChild: 10
+    timeLimit: 900
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "100m"
+        memory: "0.5Gi"
+
+nodeSelector:
+  topology.kubernetes.io/zone: ap-southeast-1a
+
+# affinity:
+#   podAntiAffinity:
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       podAffinityTerm:
+#         labelSelector:
+#           matchExpressions:
+#           - key: grofers.io/component
+#             operator: In
+#             values:
+#             - datalake-kafka-connect
+#         topologyKey: "kubernetes.io/hostname"

@@ -1,10 +1,8 @@
-import logging
-import time
-
 import unicodedata
 from flask import make_response, request
 from flask_login import current_user
 from flask_restful import abort
+from flask import jsonify
 from werkzeug.urls import url_quote
 from redash import models, settings
 from redash.handlers.base import BaseResource, get_object_or_404, record_event
@@ -17,10 +15,11 @@ from redash.permissions import (
     view_only,
 )
 from redash.tasks import Job
-from redash.tasks.queries import enqueue_query
+from redash.tasks.queries import enqueue_query, get_wait_rank, get_queue_name_from_job_id, store_queue_name_job_id_pair
 from redash.utils import (
     collect_parameters_from_request,
     json_dumps,
+    json_loads,
     utcnow,
     to_filename,
 )
@@ -35,6 +34,7 @@ from redash.serializers import (
     serialize_query_result_to_dsv,
     serialize_query_result_to_xlsx,
     serialize_job,
+    export_serialized_results_to_gsheet,
 )
 
 
@@ -63,6 +63,8 @@ error_messages = {
 def run_query(
     query, parameters, data_source, query_id, should_apply_auto_limit, max_age=0
 ):
+    if "current_user" in parameters:
+        parameters.update({"current_user": current_user.email})
     if data_source.paused:
         if data_source.pause_reason:
             message = "{} is paused ({}). Please try later.".format(
@@ -125,7 +127,9 @@ def run_query(
                 "query_id": query_id,
             },
         )
-        return serialize_job(job)
+        store_queue_name_job_id_pair(job.id, data_source.queue_name)
+        wait_no = get_wait_rank(job.id, data_source.queue_name)
+        return serialize_job(job, wait_no=wait_no)
 
 
 def get_download_filename(query_result, query, filetype):
@@ -380,8 +384,7 @@ class QueryResultResource(BaseResource):
         if query_result:
             require_access(query_result.data_source, self.current_user, view_only)
 
-            if isinstance(self.current_user, models.ApiUser):
-                event = {
+            event = {
                     "user_id": None,
                     "org_id": self.current_org.id,
                     "action": "api_get",
@@ -391,13 +394,20 @@ class QueryResultResource(BaseResource):
                     "ip": request.remote_addr,
                 }
 
-                if query_id:
-                    event["object_type"] = "query"
-                    event["object_id"] = query_id
-                else:
-                    event["object_type"] = "query_result"
-                    event["object_id"] = query_result_id
+            if query_id:
+                event["object_type"] = "query"
+                event["object_id"] = query_id
+            else:
+                event["object_type"] = "query_result"
+                event["object_id"] = query_result_id
 
+            if isinstance(self.current_user, models.ApiUser):
+                event['action'] = 'api_get'
+                event['api_key'] = self.current_user.name
+            else:
+                event['action'] = 'download'
+
+            if filetype != 'json':
                 self.record_event(event)
 
             response_builders = {
@@ -405,8 +415,9 @@ class QueryResultResource(BaseResource):
                 "xlsx": self.make_excel_response,
                 "csv": self.make_csv_response,
                 "tsv": self.make_tsv_response,
+                "gsheets-export": self.make_export_gsheets_response,
             }
-            response = response_builders[filetype](query_result)
+            response = response_builders[filetype](query_result, self.current_user, query.query_text if query else query_result.query_text, query_result_id, self.current_org.id)
 
             if len(settings.ACCESS_CONTROL_ALLOW_ORIGIN) > 0:
                 self.add_cors_headers(response.headers)
@@ -427,31 +438,39 @@ class QueryResultResource(BaseResource):
             abort(404, message="No cached result found for this query.")
 
     @staticmethod
-    def make_json_response(query_result):
+    def make_json_response(query_result, current_user, query, query_result_id, current_org_id):
         data = json_dumps({"query_result": query_result.to_dict()})
         headers = {"Content-Type": "application/json"}
         return make_response(data, 200, headers)
 
     @staticmethod
-    def make_csv_response(query_result):
+    def make_csv_response(query_result, current_user, query, query_result_id, current_org_id):
         headers = {"Content-Type": "text/csv; charset=UTF-8"}
         return make_response(
-            serialize_query_result_to_dsv(query_result, ","), 200, headers
+            serialize_query_result_to_dsv(query_result, ",", current_user, "csv", query, query_result_id, current_org_id), 200, headers
         )
 
     @staticmethod
-    def make_tsv_response(query_result):
+    def make_tsv_response(query_result, current_user, query, query_result_id, current_org_id):
         headers = {"Content-Type": "text/tab-separated-values; charset=UTF-8"}
         return make_response(
-            serialize_query_result_to_dsv(query_result, "\t"), 200, headers
+            serialize_query_result_to_dsv(query_result, "\t", current_user, "tsv", query, query_result_id, current_org_id), 200, headers
         )
 
     @staticmethod
-    def make_excel_response(query_result):
+    def make_excel_response(query_result, current_user, query, query_result_id, current_org_id):
         headers = {
             "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         }
-        return make_response(serialize_query_result_to_xlsx(query_result), 200, headers)
+        return make_response(serialize_query_result_to_xlsx(query_result, current_user, "excel", query, query_result_id, current_org_id), 200, headers)
+
+    @staticmethod
+    def make_export_gsheets_response(query_result, current_user, query, query_result_id, current_org_id):
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        return make_response(jsonify(export_serialized_results_to_gsheet(query_result, current_user, query, query_result_id, current_org_id)), 200, headers)
 
 
 class JobResource(BaseResource):
@@ -460,7 +479,9 @@ class JobResource(BaseResource):
         Retrieve info about a running query job.
         """
         job = Job.fetch(job_id)
-        return serialize_job(job)
+        queue_name = get_queue_name_from_job_id(job.id)
+        wait_no = get_wait_rank(job.id, queue_name)
+        return serialize_job(job, wait_no=wait_no)
 
     def delete(self, job_id):
         """

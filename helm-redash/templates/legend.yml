@@ -1,0 +1,43 @@
+apiVersion: grofers.io/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ $.Release.Name -}}-legend
+  labels:
+    app: {{ $.Release.Name -}}-legend
+    component: {{ $.Release.Name -}}-legend
+    grofers.io/service: redash
+    grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-legend
+    grofers.io/component-role: data-visualization
+    grofers.io/business-service: data-reporting
+    grofers.io/team: data-engineering
+    grofers.io/tribe: data
+
+spec:
+  apiVersion: grofers.io/v1beta1
+  kind: GrafanaDashboard
+  grafana_dashboard_spec:
+    title: "{{ $.Release.Name -}}"
+    service: {{ $.Release.Name -}}-service
+    grafana_folder: DATA
+    alert_config:
+      notification_channels: ["Data - Redash Alerts"]
+    description: Metrics around Redash - BI/Reporting tool for data team
+
+    references:
+      deployment: http://internal-dse-jenkins.grofer.io/blue/organizations/jenkins/redash/branches
+      documentation: https://github.com/grofers/redash
+      metrics_definition: https://github.com/grofers/redash
+
+    tags:
+    - prod
+    - data
+    - redash
+    - data-reporting
+
+    components:
+      flask:
+        dimensions:
+          - job: {{ $.Release.Name -}}-service
+      platform_k8s_deployment:
+          dimensions:
+          - deployment_name: {{ $.Release.Name -}}

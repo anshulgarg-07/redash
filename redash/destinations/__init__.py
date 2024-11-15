@@ -7,6 +7,8 @@ __all__ = ["BaseDestination", "register", "get_destination", "import_destination
 
 class BaseDestination(object):
     deprecated = False
+    visualization_enabled = False
+    alert_enabled = True
 
     def __init__(self, configuration):
         self.configuration = configuration

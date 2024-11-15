@@ -1,4 +1,4 @@
-FROM node:12 as frontend-builder
+FROM node:12 AS frontend-builder
 
 # Controls whether to build the frontend assets
 ARG skip_frontend_build
@@ -58,13 +58,15 @@ RUN apt-get update && \
     libsasl2-dev \
     unzip \
     libsasl2-modules-gssapi-mit && \
-  # MSSQL ODBC Driver:  
-  curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-  curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
-  apt-get update && \
-  ACCEPT_EULA=Y apt-get install -y msodbcsql17 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+
+# Install DuckDB Python package
+RUN pip install duckdb==0.10.3
+
+# Install and load httpfs extension
+RUN python -c "import duckdb; conn = duckdb.connect(); conn.execute('INSTALL httpfs'); conn.execute('LOAD httpfs'); conn.close()"
+
 
 ARG databricks_odbc_driver_url=https://databricks.com/wp-content/uploads/2.6.10.1010-2/SimbaSparkODBC-2.6.10.1010-2-Debian-64bit.zip
 RUN wget --quiet $databricks_odbc_driver_url -O /tmp/simba_odbc.zip \
@@ -79,7 +81,7 @@ WORKDIR /app
 
 # Disalbe PIP Cache and Version Check
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PIP_NO_CACHE_DIR=1
+ENV PIP_NO_CACHE_DIR=off
 
 # rollback pip version to avoid legacy resolver problem
 RUN pip install pip==20.2.4;

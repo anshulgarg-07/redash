@@ -60,7 +60,6 @@ def schedule(kwargs):
 
 def periodic_job_definitions():
     jobs = [
-        {"func": refresh_queries, "timeout": 600, "interval": 30, "result_ttl": 600},
         {
             "func": remove_ghost_locks,
             "interval": timedelta(minutes=1),
@@ -82,6 +81,8 @@ def periodic_job_definitions():
             "interval": timedelta(minutes=settings.SEND_FAILURE_EMAIL_INTERVAL),
         },
     ]
+    if not settings.FEATURE_DISABLE_REFRESH_QUERIES:
+        jobs.append({"func": refresh_queries, "timeout": 600, "interval": 30, "result_ttl": 600})
 
     if settings.VERSION_CHECK:
         jobs.append({"func": version_check, "interval": timedelta(days=1)})

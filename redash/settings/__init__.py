@@ -1,6 +1,7 @@
 import os
 import importlib
 import ssl
+import json
 from funcy import distinct, remove
 from flask_talisman import talisman
 
@@ -21,6 +22,7 @@ _REDIS_URL = os.environ.get(
 )
 # This is the one to use for Redash' own connection:
 REDIS_URL = add_decode_responses_to_redis_url(_REDIS_URL)
+REDIS_RO_URL = os.environ.get('REDASH_REDIS_RO_URL', REDIS_URL)
 PROXIES_COUNT = int(os.environ.get("REDASH_PROXIES_COUNT", "1"))
 
 STATSD_HOST = os.environ.get("REDASH_STATSD_HOST", "127.0.0.1")
@@ -307,6 +309,8 @@ ALERTS_DEFAULT_MAIL_SUBJECT_TEMPLATE = os.environ.get(
     "REDASH_ALERTS_DEFAULT_MAIL_SUBJECT_TEMPLATE", "({state}) {alert_name}"
 )
 
+ENABLE_ALERTS = parse_boolean(os.environ.get('REDASH_ENABLE_ALERTS', 'true'))
+
 # How many requests are allowed per IP to the login page before
 # being throttled?
 # See https://flask-limiter.readthedocs.io/en/stable/#rate-limit-string-notation
@@ -315,6 +319,9 @@ RATELIMIT_ENABLED = parse_boolean(os.environ.get("REDASH_RATELIMIT_ENABLED", "tr
 THROTTLE_LOGIN_PATTERN = os.environ.get("REDASH_THROTTLE_LOGIN_PATTERN", "50/hour")
 LIMITER_STORAGE = os.environ.get("REDASH_LIMITER_STORAGE", REDIS_URL)
 THROTTLE_PASS_RESET_PATTERN = os.environ.get("REDASH_THROTTLE_PASS_RESET_PATTERN", "10/hour")
+
+USER_LIST_RESOURCE_RATELIMIT = os.environ.get('USER_LIST_RESOURCE_RATELIMIT', '200/day;50/hour')
+USER_RESOURCE_RATELIMIT = os.environ.get('USER_RESOURCE_RATELIMIT', '50/hour')
 
 # CORS settings for the Query Result API (and possibly future external APIs).
 # In most cases all you need to do is set REDASH_CORS_ACCESS_CONTROL_ALLOW_ORIGIN
@@ -419,6 +426,7 @@ default_destinations = [
     "redash.destinations.chatwork",
     "redash.destinations.pagerduty",
     "redash.destinations.hangoutschat",
+    "redash.destinations.gsheets",
 ]
 
 enabled_destinations = array_from_string(
@@ -433,6 +441,8 @@ DESTINATIONS = distinct(enabled_destinations + additional_destinations)
 EVENT_REPORTING_WEBHOOKS = array_from_string(
     os.environ.get("REDASH_EVENT_REPORTING_WEBHOOKS", "")
 )
+
+ENABLE_EVENT_LOGS = parse_boolean(os.environ.get("REDASH_ENABLE_EVENT_LOGS", "true"))
 
 # Support for Sentry (https://getsentry.com/). Just set your Sentry DSN to enable it:
 SENTRY_DSN = os.environ.get("REDASH_SENTRY_DSN", "")
@@ -535,3 +545,60 @@ CSRF_TIME_LIMIT = int(os.environ.get("REDASH_CSRF_TIME_LIMIT", 3600 * 6))
 
 # Email blocked domains, use delimiter comma to separated multiple domains
 BLOCKED_DOMAINS = set_from_string(os.environ.get("REDASH_BLOCKED_DOMAINS", "qq.com"))
+
+# feature to enforce sql max rows limit per datasource
+DEFAULT_SQL_MAX_ROWS_LIMIT = int(os.environ.get("REDASH_DEFAULT_SQL_MAX_ROWS_LIMIT", 100000))
+FEATURE_ENFORCE_MAX_QUERY_ROWS_LIMIT = parse_boolean(os.environ.get("REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT", "false"))
+DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD = parse_boolean(os.environ.get("REDASH_DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD", "true"))
+TEXT_FILTER_STOP_WORDS = set_from_string(os.environ.get("TEXT_FILTER_STOP_WORDS", "SELECT,INSERT,DROP,ALTER,TRUNCATE,CREATE,UNION,INTERSECT,EXCEPT"))
+
+# feature to enforce character limit on the query
+FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT = parse_boolean(os.environ.get("REDASH_FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT", "false"))
+QUERY_CHARACTER_LIMIT = int(os.environ.get("FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT", 8000))
+
+# feature to block dashboard level access button
+ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH = parse_boolean(os.environ.get("REDASH_ENABLE_RESTRICTED_ACCESS_ON_DASHBOARD_REFRESH", "false"))
+DASHBOARD_RESTRICTED_REFRESH_MESSAGE = os.environ.get("DASHBOARD_RESTRICTED_REFRESH_MESSAGE", "Complete dashboard refresh temporarily unavailable for NYE, please load individual charts")
+# header display
+TOP_BANNER_TEXT = os.environ.get("TOP_BANNER_TEXT", "")
+# Catalog link display
+REDASH_DB_CATALOG_MAPPING = json.loads(os.environ.get('REDASH_DB_CATALOG_MAPPING', "{\"1\":\"trino\"}"))
+
+# API link to get the datasets details of data-catalog.grofers.io
+DATA_CATALOG_DATASET_API = os.environ.get('DATA_CATALOG_DATASET_API', '')
+# Link of Datasets at data-catalog.grofers.io
+REDASH_VIEW_CATALOG_LINK = os.environ.get('REDASH_VIEW_CATALOG_LINK', '')
+
+# night refresh skip/weekend reduced frequency
+REDASH_NIGHTLY_SKIP = parse_boolean(os.environ.get('REDASH_NIGHTLY_SKIP', 'false'))
+REDASH_REDUCED_WEEKEND_RUNS = parse_boolean(os.environ.get('REDASH_REDUCED_WEEKEND_RUNS', 'false'))
+NIGHT_START = os.environ.get('REDASH_NIGHT_START', '04:30PM')
+NIGHT_END = os.environ.get('REDASH_NIGHT_END', '12:30AM')
+# Decrease the scheduled query execution by this many times
+WEEKEND_FREQUENCY = int(os.environ.get('REDASH_WEEKEND_FREQUENCY', 3))
+# If Schedule Interval of query is more than this limit, do not execute it on weekends at all
+INTERVAL_LIMIT = int(os.environ.get('REDASH_INTERVAL_LIMIT', 14400))
+# Default tags which needs to be applied to a query at creation time
+AURORA_TAGS = array_from_string(os.environ.get("REDASH_AURORA_TAGS", "nightly-skip,reduced-weekend-runs"))
+# Data Source on which default tags shall be applied
+TAG_DATA_SOURCES = array_from_string(os.environ.get("REDASH_TAG_DATA_SOURCES", "1"))
+
+# API link to get the datasets details of data-catalog.grofers.io
+DATA_CATALOG_DATASET_API = os.environ.get('DATA_CATALOG_DATASET_API', '')
+DATA_CATALOG_ACCESS_KEY = os.environ.get('DATA_CATALOG_ACCESS_KEY','')
+# Link of Datasets at data-catalog.grofers.io
+REDASH_VIEW_CATALOG_LINK = os.environ.get('REDASH_VIEW_CATALOG_LINK', '')
+# Sync to Destination
+REDASH_SYNC_TIME_LIMIT = int(os.environ.get('REDASH_SYNC_TIME_LIMIT', 60))
+REDASH_GOOGLE_SHEET_API_CONFIG = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_API_CONFIG', '{}'))
+REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS', '{}'))
+REDASH_GOOGLE_SHEET_CLIENT_MAPPING = json.loads(os.environ.get('REDASH_GOOGLE_SHEET_CLIENT_MAPPING', '{}'))
+DESTINATION_SYNC_ENABLED = parse_boolean(os.environ.get("REDASH_DESTINATION_SYNC_ENABLED", "false"))
+QUERY_RESULT_MAX_BYTES_LIMIT = int(os.environ.get("REDASH_QUERY_RESULT_MAX_BYTES_LIMIT", 10737418240)) # 10GB
+QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT = int(os.environ.get("QUERY_RESULT_DATA_DOWNLOAD_ROW_LIMIT", 1000000000))
+ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING = parse_boolean(os.environ.get("ENABLE_DOWNLOAD_DATA_AUDIT_LOGGING", "false"))
+DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH = os.environ.get('DOWNLOAD_DATA_AUDIT_LOGGING_S3_PATH', '')
+DOWNLOAD_DATA_ARCHIVE_S3_PATH = os.environ.get('DOWNLOAD_DATA_ARCHIVE_S3_PATH', '')
+REDASH_NAME = os.environ.get('REDASH_NAME', '')
+REDASH_GOOGLE_SHEETS_OWNER_EMAIL = os.environ.get('REDASH_GOOGLE_SHEETS_OWNER_EMAIL', '')
+REDASH_PROTECTED_DESTINATION_SYNC_ENABLED = os.environ.get('REDASH_PROTECTED_DESTINATION_SYNC_ENABLED', 'false')

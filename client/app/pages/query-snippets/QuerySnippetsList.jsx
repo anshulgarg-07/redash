@@ -25,7 +25,7 @@ import routes from "@/services/routes";
 
 import "./QuerySnippetsList.less";
 
-const canEditQuerySnippet = querySnippet => currentUser.isAdmin || currentUser.id === get(querySnippet, "user.id");
+const canEditQuerySnippet = querySnippet => currentUser.isAdmin || currentUser.isPseudoAdmin || currentUser.id === get(querySnippet, "user.id");
 
 class QuerySnippetsList extends React.Component {
   static propTypes = {

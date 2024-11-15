@@ -1,0 +1,42 @@
+.details {
+    width: 600px !important;
+    margin: 0 auto;
+  }
+  
+  .error-component {
+      display: flex;
+      flex-direction: column;
+      text-align: center;
+      font-size: 40px;
+  }
+  
+  .error-component i{
+      color: #668899;
+  }
+  
+  .details-component {
+    display: flex;
+      flex-direction: row;
+    padding: 5px 0px;
+  }
+  
+  .details-component h5 {
+      width: 20%;
+    padding-right: 10px;
+    text-align: left;
+  }
+  
+  .details-component p {
+      width: 80%;
+      margin: 9px 0;
+    text-align: left;
+  }
+  
+  .details-component > div > *:not(:last-child) {
+    padding-right: 3px;
+  }
+  
+  .catalog-link {
+      padding: 10px;
+      text-align: center;
+  }

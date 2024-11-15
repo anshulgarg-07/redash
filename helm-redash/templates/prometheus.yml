@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $.Release.Name -}}-servicemonitor
+  labels:
+    app: {{ $.Release.Name -}}-servicemonitor
+    release: prom-op
+    grofers.io/service: redash
+    grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-servicemonitor
+    grofers.io/component-role: observability
+    grofers.io/business-service: data-reporting
+    grofers.io/team: data-engineering
+    grofers.io/tribe: data
+spec:
+  selector:
+    matchLabels:
+      app: {{ $.Release.Name -}}-service
+  namespaceSelector:
+    matchNames:
+    - {{ $.Release.Namespace }}
+  endpoints:
+  - port: http
+    path: /metrics_with_status
+    interval: 10s
+    honorLabels: true

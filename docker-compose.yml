@@ -1,11 +1,11 @@
 # This configuration file is for the **development** setup.
 # For a production example please refer to getredash/setup repository on GitHub.
-version: "2.2"
+version: "3.9"
 x-redash-service: &redash-service
   build:
     context: .
-    args:
-      skip_frontend_build: "true"
+    # args:
+      # skip_frontend_build: ""
   volumes:
     - .:/app
   env_file:
@@ -13,40 +13,45 @@ x-redash-service: &redash-service
 x-redash-environment: &redash-environment
   REDASH_LOG_LEVEL: "INFO"
   REDASH_REDIS_URL: "redis://redis:6379/0"
-  REDASH_DATABASE_URL: "postgresql://postgres@postgres/postgres"
+  REDASH_DATABASE_URL: "postgresql://redash:redash@postgres:5432/redash"
   REDASH_RATELIMIT_ENABLED: "false"
   REDASH_MAIL_DEFAULT_SENDER: "redash@example.com"
   REDASH_MAIL_SERVER: "email"
   REDASH_ENFORCE_CSRF: "true"
+  REDASH_FEATURE_ENFORCE_QUERY_ROWS_LIMIT: "true"
+  REDASH_COOKIE_SECRET: akdgksdbkewqb
+  QUEUES: "queries,scheduled_queries,celery,schemas,push_to_jumbo"
   # Set secret keys in the .env file
 services:
   server:
     <<: *redash-service
-    command: dev_server
+    command: server
     depends_on:
       - postgres
       - redis
     ports:
-      - "5000:5000"
+      - "5001:5000"
       - "5678:5678"
+      - "8081:8080"
     environment:
       <<: *redash-environment
       PYTHONUNBUFFERED: 0
   scheduler:
     <<: *redash-service
-    command: dev_scheduler
+    command: scheduler
     depends_on:
       - server
     environment:
       <<: *redash-environment
   worker:
     <<: *redash-service
-    command: dev_worker
+    command: worker
     depends_on:
       - server
     environment:
       <<: *redash-environment
       PYTHONUNBUFFERED: 0
+      WORKERS_COUNT: 2
   redis:
     image: redis:3-alpine
     restart: unless-stopped
@@ -56,13 +61,31 @@ services:
     # improvement on my personal machine). We should consider moving this into a dedicated Docker Compose configuration for
     # tests.
     ports:
-      - "15432:5432"
+      - "5432:5432"
     command: "postgres -c fsync=off -c full_page_writes=off -c synchronous_commit=OFF"
     restart: unless-stopped
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
+      POSTGRES_USER: redash
+      POSTGRES_PASSWORD: redash
+      POSTGRES_DB: redash
   email:
     image: djfarrelly/maildev
     ports:
       - "1080:80"
     restart: unless-stopped
+  nginx:
+    image: redash/nginx:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    restart: always
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    restart: unless-stopped
+    ports:
+      - 8082:8081

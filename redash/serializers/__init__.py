@@ -13,12 +13,15 @@ from redash import models
 from redash.permissions import has_access, view_only
 from redash.utils import json_loads
 from redash.models.parameterized_query import ParameterizedQuery
+from redash.destinations import get_configuration_schema_for_destination_type
+from redash.settings import DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD
 
 
 from .query_result import (
     serialize_query_result,
     serialize_query_result_to_dsv,
     serialize_query_result_to_xlsx,
+    export_serialized_results_to_gsheet,
 )
 
 
@@ -176,6 +179,55 @@ def serialize_visualization(object, with_query=True):
     return d
 
 
+def serialize_destination_history(object):
+    d = {
+        'id': object.id,
+        'user_id': object.user_id,
+        'timestamp': object.synced_at,
+        'duration': object.sync_duration,
+        'status': object.status,
+        'error': object.error_log
+    }
+
+    return d
+
+
+def serialize_destination(object, all=True):
+    d = {
+        'id': object.id,
+        'name': object.name,
+        'type': object.type,
+        'create_ts': object.created_at,
+        'update_ts': object.updated_at,
+        'visualization_id': object.visualization_id,
+        'created_by': {
+            'user': {
+                'id': object.user.id,
+                'name': object.user.name,
+                'email': object.user.email
+            }
+        },
+        'updated_by': {
+            'user': {
+                'id': object.last_modified_by.id,
+                'name': object.last_modified_by.name,
+                'email': object.last_modified_by.email
+            }
+        }
+    }
+
+    if object.last_destination_sync:
+        d['last_sync'] = serialize_destination_history(object.last_destination_sync)
+    else:
+        d['last_sync'] = None
+
+    if all:
+        schema = get_configuration_schema_for_destination_type(object.type)
+        object.options.set_schema(schema)
+        d['options'] = object.options.to_dict(mask_secrets=True)
+
+    return d
+
 def serialize_widget(object):
     d = {
         "id": object.id,
@@ -264,6 +316,7 @@ def serialize_dashboard(obj, with_widgets=False, user=None, with_favorite_state=
         "updated_at": obj.updated_at,
         "created_at": obj.created_at,
         "version": obj.version,
+        "settings": {"should_force_refresh_on_load": DASHBOARD_FORCE_REFRESH_ON_PAGE_LOAD},
     }
 
     return d
@@ -298,7 +351,7 @@ class DashboardSerializer(Serializer):
         return result
 
 
-def serialize_job(job):
+def serialize_job(job, wait_no = 0):
     # TODO: this is mapping to the old Job class statuses. Need to update the client side and remove this
     STATUSES = {
         JobStatus.QUEUED: 1,
@@ -337,5 +390,6 @@ def serialize_job(job):
             "error": error,
             "result": result,
             "query_result_id": query_result_id,
-        }
+        },
+        "wait_no": wait_no
     }

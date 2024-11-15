@@ -1,6 +1,8 @@
+import sys
 from collections import defaultdict
 from redash.query_runner import *
 from redash.utils import json_dumps, json_loads
+from redash import settings
 
 import logging
 
@@ -31,7 +33,7 @@ PRESTO_TYPES_MAPPING = {
 }
 
 
-class Presto(BaseQueryRunner):
+class Presto(BaseSQLQueryRunner):
     noop_query = "SHOW TABLES"
 
     @classmethod
@@ -46,6 +48,32 @@ class Presto(BaseQueryRunner):
                 "catalog": {"type": "string"},
                 "username": {"type": "string"},
                 "password": {"type": "string"},
+                "source": {
+                    "type": "string",
+                    "title": "Source to be passed to presto",
+                    "default": "pyhive"
+                },
+                "information_schema_query": {
+                    "type": "string",
+                    "title": "Custom information schema query"
+                },
+                "sql_max_rows_limit": {
+                    "type": "number",
+                    "default": 100000
+                },
+                "should_enforce_limit": {
+                    "type": "boolean",
+                    "default": False
+                },
+                'user_impersonation': {
+                    'type': 'boolean',
+                    'title': 'Allows passing logged-in users email address as username to presto, Instead of the default username being sent',
+                    'default': False
+                },
+                'sql_character_limit': {
+                    'type': 'number',
+                    'default': settings.QUERY_CHARACTER_LIMIT
+                }
             },
             "order": [
                 "host",
@@ -53,8 +81,13 @@ class Presto(BaseQueryRunner):
                 "port",
                 "username",
                 "password",
+                "source",
                 "schema",
                 "catalog",
+                "information_schema_query",
+                "sql_max_rows_limit",
+                "should_enforce_limit",
+                "user_impersonation"
             ],
             "required": ["host"],
         }
@@ -69,13 +102,14 @@ class Presto(BaseQueryRunner):
 
     def get_schema(self, get_stats=False):
         schema = {}
-        query = """
+        default_information_schema_query = """
         SELECT table_schema, table_name, column_name
         FROM information_schema.columns
         WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
         """
-
-        results, error = self.run_query(query, None)
+        information_schema_query = self.configuration.get('information_schema_query',
+                                                          default_information_schema_query)
+        results, error = self.run_query(information_schema_query, None)
 
         if error is not None:
             raise Exception("Failed getting schema.")
@@ -93,14 +127,26 @@ class Presto(BaseQueryRunner):
         return list(schema.values())
 
     def run_query(self, query, user):
+        should_impersonate_user = self.configuration.get('user_impersonation', False)
+        if not should_impersonate_user or user is None:
+            username = self.configuration.get('username', 'redash')
+        else:
+            username = user.email
+        query_character_limit = self.configuration.get('sql_character_limit', settings.QUERY_CHARACTER_LIMIT)
+        if settings.FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT and len(query) >= query_character_limit:
+            json_data = None
+            error = "Query text length ({}) exceeds the maximum length ({})".format(len(query),
+                                                                                    query_character_limit)
+            return json_data, error
         connection = presto.connect(
             host=self.configuration.get("host", ""),
             port=self.configuration.get("port", 8080),
             protocol=self.configuration.get("protocol", "http"),
-            username=self.configuration.get("username", "redash"),
+            username=username,
             password=(self.configuration.get("password") or None),
             catalog=self.configuration.get("catalog", "hive"),
             schema=self.configuration.get("schema", "default"),
+            source=self.configuration.get("source", "pyhive"),
         )
 
         cursor = connection.cursor()
@@ -115,9 +161,15 @@ class Presto(BaseQueryRunner):
                 dict(zip(([column["name"] for column in columns]), r))
                 for i, r in enumerate(cursor.fetchall())
             ]
-            data = {"columns": columns, "rows": rows}
-            json_data = json_dumps(data)
-            error = None
+            query_result_bytes = self.get_total_size(rows)
+            logger.info('Query result size {0}'.format(query_result_bytes))
+            if query_result_bytes > settings.QUERY_RESULT_MAX_BYTES_LIMIT:
+                json_data = None
+                error = "Query result too large. Data size > {0} bytes".format(settings.QUERY_RESULT_MAX_BYTES_LIMIT)
+            else:
+                data = {'columns': columns, 'rows': rows}
+                json_data = json_dumps(data)
+                error = None
         except DatabaseError as db:
             json_data = None
             default_message = "Unspecified DatabaseError: {0}".format(str(db))
@@ -133,6 +185,18 @@ class Presto(BaseQueryRunner):
             raise
 
         return json_data, error
+    
+    def get_total_size(self, obj):
+        """Recursively finds the total size of an object, including nested objects."""
+        size = sys.getsizeof(obj)
+        if isinstance(obj, dict):
+            size += sum([self.get_total_size(v) for v in obj.values()])
+            size += sum([self.get_total_size(k) for k in obj.keys()])
+        elif hasattr(obj, '__dict__'):
+            size += self.get_total_size(obj.__dict__)
+        elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+            size += sum([self.get_total_size(i) for i in obj])
+        return size
 
 
 register(Presto)

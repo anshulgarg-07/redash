@@ -1,14 +1,16 @@
 import logging
 import time
+import datetime
 
 from rq.timeouts import JobTimeoutException
 from redash import models, redis_connection, settings, statsd_client
+from redash.settings import REDASH_NIGHTLY_SKIP, NIGHT_START, NIGHT_END
 from redash.models.parameterized_query import (
     InvalidParameterError,
     QueryDetachedFromDataSourceError,
 )
 from redash.tasks.failure_report import track_failure
-from redash.utils import json_dumps, sentry
+from redash.utils import json_dumps, sentry, utcnow
 from redash.worker import job, get_job_logger
 from redash.monitor import rq_job_ids
 
@@ -27,6 +29,16 @@ def empty_schedules():
 
     logger.info("Deleted %d schedules.", len(queries))
 
+
+def is_night():
+    check_time = utcnow().time()
+    begin_time = datetime.datetime.strptime(NIGHT_START, "%I:%M%p").time()
+    end_time = datetime.datetime.strptime(NIGHT_END, "%I:%M%p").time()
+    if begin_time < end_time:
+        return begin_time <= check_time <= end_time
+    else:
+        # crosses midnight
+        return check_time >= begin_time or check_time <= end_time
 
 def _should_refresh_query(query):
     if settings.FEATURE_DISABLE_REFRESH_QUERIES:
@@ -89,18 +101,20 @@ def refresh_queries():
     for query in models.Query.outdated_queries():
         if not _should_refresh_query(query):
             continue
-
         try:
             query_text = _apply_default_parameters(query)
             query_text = _apply_auto_limit(query_text, query)
-            enqueue_query(
-                query_text,
-                query.data_source,
-                query.user_id,
-                scheduled_query=query,
-                metadata={"query_id": query.id, "Username": "Scheduled"},
-            )
-            enqueued.append(query)
+            if REDASH_NIGHTLY_SKIP and query.tags and ("nightly-skip" in query.tags) and is_night():
+                logging.info("Skipping refresh of %s because not scheduled for night.", query.id)
+            else:
+                enqueue_query(
+                    query_text,
+                    query.data_source,
+                    query.user_id,
+                    scheduled_query=query,
+                    metadata={"query_id": query.id, "Username": "Scheduled"},
+                )
+                enqueued.append(query)
         except Exception as e:
             message = "Could not enqueue query %d due to %s" % (query.id, repr(e))
             logging.info(message)

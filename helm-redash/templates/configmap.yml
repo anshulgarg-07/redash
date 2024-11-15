@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Release.Name -}}-configmap
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    grofers.io/service: redash
+    grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-configmap
+    grofers.io/component-role: storage
+    grofers.io/business-service: data-reporting
+    grofers.io/team: data-engineering
+    grofers.io/tribe: data
+data:
+  nginx.conf: |
+    upstream rd_servers {
+      server 0.0.0.0:5000;
+    }
+    server {
+      listen 80;
+      server_name {{ $.Values.applicationHostName }};
+      server_tokens off;
+      client_max_body_size 2M;
+      gzip on;
+      gzip_min_length 200;
+      gzip_types application/ecmascript application/javascript application/json application/pdf application/postscript application/x-javascript image/svg+xml text/css text/csv text/javascript text/plain text/xml application/xml;
+      access_log /dev/stdout;
+      error_log /dev/stdout;
+
+      if ($http_x_forwarded_proto = 'http') {
+        return 301 https://$host$request_uri;
+      }
+
+      location / {
+        proxy_pass http://rd_servers;
+        proxy_read_timeout 30;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass_request_headers      on;
+        proxy_set_header Host $http_host;
+        add_header P3P 'CP="ALL DSP COR PSAa PSDa OUR NOR ONL UNI COM NAV"';
+      }
+    }
+  env.ctml: |
+    export REDASH_LOG_LEVEL="INFO"
+    export REDASH_REDIS_URL="redis://{{ "{{" }} key "{{ $.Values.consulPath }}/endpoints/redash_redis_host" {{ "}}" }}:6379/{{ "{{" }} key "{{ $.Values.consulPath }}/config/redash_redis_database" {{ "}}" }}"
+    export REDASH_REDIS_RO_URL="redis://{{ "{{" }} key "{{ $.Values.consulPath }}/endpoints/redash_redis_ro_host" {{ "}}" }}:6379/{{ "{{" }} key "{{ $.Values.consulPath }}/config/redash_redis_database" {{ "}}" }}"
+    export REDASH_DATABASE_URL="postgresql://{{ "{{" }} with secret "{{ $.Values.vaultDatabasePath }}" -}}{{ "{{" }} .Data.username }}:{{ "{{" }} .Data.password }}{{ "{{" }}- end }}@{{ "{{" }} key "{{ $.Values.consulPath }}/endpoints/redash_db_host" }}/{{ "{{" }} key "{{ $.Values.consulPath }}/config/redash_db_name" {{ "}}" }}"
+    {{ "{{" }}- with secret "{{ $.Values.vaultApplicationPath }}" {{ "}}" }}
+    export REDASH_COOKIE_SECRET="{{ "{{" }} .Data.cookie_secret {{ "}}" }}"
+    export REDASH_SECRET_KEY="{{ "{{" }} .Data.secret_key {{ "}}" }}"
+    {{ "{{" }}- end {{ "}}" }}
+    export REDASH_SCHEMAS_REFRESH_SCHEDULE=60
+
+    #Email Config
+    export REDASH_MAIL_SERVER="smtp.grofer.io"
+    export REDASH_MAIL_PORT="9267"
+    export REDASH_MAIL_DEFAULT_SENDER="oncall.data@grofers.com"
+    export REDASH_MAIL_USE_TLS="False"
+    export REDASH_MAIL_USE_SSL="False"
+    export REDASH_EXPIRE_QUERY_SCHEDULE_NOTIF_EMAIL_RECEIVER="oncall.data@grofers.com"
+    {{ "{{" }} with key "{{ $.Values.consulPath }}/config/google_oauth" | parseJSON {{ "}}" }}
+    #Google OAuth
+    export REDASH_GOOGLE_CLIENT_ID="{{ "{{" }} .id {{ "}}" }}"
+    export REDASH_GOOGLE_CLIENT_SECRET="{{ "{{" }} .secret {{ "}}" }}"
+    export REDASH_GOOGLE_APPS_DOMAIN="grofers.com"
+    export REDASH_PASSWORD_LOGIN_ENABLED="false"
+    {{ "{{" }} end }}
+    #Set sentry DSN
+    export REDASH_SENTRY_DSN="{{ "{{" }} key "{{ $.Values.consulPath }}/config/sentry_dsn" {{ "}}" }}"
+    export REDASH_HOST="{{ "{{" }} key "{{ $.Values.consulPath }}/endpoints/redash_host" {{ "}}" }}"
+    export REDASH_ENFORCE_HTTPS="false"
+
+    # Set Recent Dashboard Feature - Dumb
+    # For more info : https://github.com/grofers/redash/blob/master/redash/handlers/dashboards.py#L21-L33
+    export REDASH_FEATURE_DUMB_RECENTS="true"
+
+    # Dashboard Configs
+    export REDASH_QUERY_REFRESH_INTERVALS="{{ "{{" }} key "{{ $.Values.consulPath }}/config/refresh_intervals" {{ "}}" }}"
+    export REDASH_VERSION_CHECK="false"
+
+    # Query cleanup
+    export REDASH_QUERY_RESULTS_CLEANUP_COUNT="500"
+    export REDASH_QUERY_RESULTS_CLEANUP_MAX_AGE="2"
+
+    # Statsd Prefix Info
+    export REDASH_STATSD_PREFIX="{{- $.Release.Name -}}"
+
+    # Skip queries performing full scans on Aurora fact tables
+    export REDASH_FULL_SCAN_RESTRICTED_TABLES="{{ "{{" }} key "{{ $.Values.consulPath }}/config/full_scan_restricted_tables" {{ "}}" }}"
+    export REDASH_POSTGRES_DB_ID="{{ "{{" }} key "{{ $.Values.consulPath }}/config/full_scan_restricted_db" {{ "}}" }}"
+
+    # Nightly Skip and Reduced Weekend Frequency
+    export REDASH_NIGHTLY_SKIP="true"
+    export REDASH_REDUCED_WEEKEND_RUNS="true"
+    export REDASH_NIGHT_START="04:30PM"
+    export REDASH_NIGHT_END="12:30AM"
+    export REDASH_WEEKEND_FREQUENCY="3"
+    export REDASH_INTERVAL_LIMIT="14400"
+    export REDASH_AURORA_TAGS="nightly-skip,reduced-weekend-runs"
+    export REDASH_TAG_DATA_SOURCES="42"
+
+    # Catalog link display
+    export REDASH_DB_CATALOG_MAPPING="{{ "{{" }} key "{{ $.Values.consulPath }}/config/db_catalog_mapping" {{ "}}" }}"
+
+    # API link to get the datasets details of data-catalog.grofers.io
+    export DATA_CATALOG_DATASETS_API="{{ "{{" }} key "{{ $.Values.consulPath }}/config/data_catalog_datasets_api" {{ "}}" }}"
+    export DATA_CATALOG_DATASET_API="{{ "{{" }} key "{{ $.Values.consulPath }}/config/data_catalog_dataset_api" {{ "}}" }}"
+    {{ "{{" }}- with secret "{{ $.Values.vaultApplicationPath }}" {{ "}}" }}
+    export DATA_CATALOG_ACCESS_KEY="{{ "{{" }} .Data.data_catalog_access_key {{ "}}" }}"
+    {{ "{{" }}- end {{ "}}" }}
+
+    # Link of Datasets at data-catalog.grofers.io
+    export REDASH_VIEW_CATALOG_LINK="{{ "{{" }} key "{{ $.Values.consulPath }}/config/redash_view_catalog_link" {{ "}}" }}"
+
+    # Sync to Destination
+    {{ "{{" }}- with secret "data/services/{{ $.Values.grofersIOComponentPrefix }}/webserver/service-accounts/redash-destination-sync" {{ "}}" }}
+    export REDASH_GOOGLE_SHEET_API_CONFIG='''{{ "{{" }} .Data {{ "| toJSON" }} {{ "}}" }}'''
+    {{ "{{" }}- end {{ "}}" }}
+    {{ "{{" }}- with secret "data/google-sheets/destination-sync-delegated" {{ "}}" }}
+    export REDASH_GOOGLE_SHEET_DELEGATED_CONFIGS='''{{ "{{" }} .Data {{ "| toJSON" }} {{ "}}" }}'''
+    {{ "{{" }}- end {{ "}}" }}
+    export REDASH_GOOGLE_SHEET_CLIENT_MAPPING="{{ "{{" }} key "{{ $.Values.consulPath }}/config/sync_client_mapping" {{ "}}" }}"
+    export REDASH_SYNC_TIME_LIMIT="{{ "{{" }} key "{{ $.Values.consulPath }}/config/sync_time_limit" {{ "}}" }}"
+
+    # Time limit for jobs
+    export REDASH_JOB_EXPIRY_TIME="{{ "{{" }} key "{{ $.Values.consulPath }}/config/job_expiry_time" {{ "}}" }}"

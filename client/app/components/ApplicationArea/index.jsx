@@ -32,6 +32,5 @@ export default function ApplicationArea() {
   if (unhandledError) {
     return <ErrorMessage error={unhandledError} />;
   }
-
   return <Router routes={routes.items} onRouteChange={setCurrentRoute} />;
 }

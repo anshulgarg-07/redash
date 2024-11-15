@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name -}}-service
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: {{ $.Values.service.sslCert }}
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: https
+    service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "grofers.io/service=redash,grofers.io/component={{- $.Values.grofersIOComponentPrefix -}}-elb,grofers.io/component-role=loadbalancer,grofers.io/business-service=data-reporting,grofers.io/team=data-engineering,grofers.io/tribe=data"
+{{- if .Values.service.annotations }}
+{{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ $.Release.Name -}}-service
+    grofers.io/service: redash
+    grofers.io/component: {{ $.Values.grofersIOComponentPrefix -}}-elb
+    grofers.io/component-role: loadbalancer
+    grofers.io/business-service: data-reporting
+    grofers.io/team: data-engineering
+    grofers.io/tribe: data
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 443
+    targetPort: 80
+    name: https
+  - port: 80
+    targetPort: 80
+    name: http
+  selector:
+    pod: {{ $.Release.Name -}}-appserver

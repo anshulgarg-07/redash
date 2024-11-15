@@ -3,8 +3,8 @@ x-redash-service: &redash-service
   build:
     context: ../
     args:
-      skip_dev_deps: "true"
-      skip_ds_deps: "true"
+      skip_dev_deps: ""
+      skip_ds_deps: ""
       code_coverage: ${CODE_COVERAGE}
 x-redash-environment: &redash-environment
   REDASH_LOG_LEVEL: "INFO"

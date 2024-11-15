@@ -30,11 +30,13 @@ class CreateSourceDialog extends React.Component {
     sourceType: PropTypes.string.isRequired,
     imageFolder: PropTypes.string.isRequired,
     helpTriggerPrefix: PropTypes.string,
+    extraFields: PropTypes.arrayOf(PropTypes.object),
     onCreate: PropTypes.func.isRequired,
   };
 
   static defaultProps = {
     types: [],
+    extraFields: [],
     helpTriggerPrefix: null,
   };
 
@@ -101,9 +103,9 @@ class CreateSourceDialog extends React.Component {
   }
 
   renderForm() {
-    const { imageFolder, helpTriggerPrefix } = this.props;
+    const { imageFolder, helpTriggerPrefix, extraFields } = this.props;
     const { selectedType } = this.state;
-    const fields = helper.getFields(selectedType);
+    const fields = helper.getFields(selectedType, extraFields);
     const helpTriggerType = `${helpTriggerPrefix}${toUpper(selectedType.type)}`;
     return (
       <div>
