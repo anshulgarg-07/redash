@@ -35,17 +35,23 @@ def store_queue_name_job_id_pair(job_id, queue_name):
 def get_queue_name_from_job_id(job_id):
     key_name = "queue_name:" + job_id
     queue_name = redis_connection.get(key_name)
+    logger.info(f"the fetched queue name for job {job_id} is {  queue_name}")
     return queue_name
 
 
 def get_wait_rank(job_id, queue_name):
     if queue_name is not None:
-        all_jobs = redis_ro_connection.lrange(queue_name, 0, -1)
-        count = len(all_jobs)
-        for i, job in enumerate(all_jobs):
-            if json_loads(job)['headers']['id'] == job_id:
-                return count - i
+        try:
+            queue = Queue(queue_name)
+            job_ids = queue.job_ids
+            position = job_ids.index(job_id)
+            logger.info(f"Wait rank fetched for queue: {queue_name} and job: {job_id} -- {position}")
+            return position
+        except Exception as e:
+            logger.info(f"Error fetching rank for queue: {queue_name} and job: {job_id} with error: {str(e)}")
+            return "NA"
     else:
+        logger.info(f"Error fetching rank for queue: {queue_name} and job: {job_id} with error: Queue_name is none")
         return "NA"
 
 

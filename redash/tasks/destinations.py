@@ -39,7 +39,8 @@ class SyncTask(object):
         'started': 2,
         'finished': 3,
         'failed': 4,
-        'stopped': 4
+        'stopped': 4,
+        'canceled': 4
     }
 
     def __init__(self, job_id=None, job=None):
@@ -68,7 +69,7 @@ class SyncTask(object):
         elif isinstance(result, Exception):
             error = result.message
             status = 4
-        elif task_status == 'stopped':
+        elif task_status == 'stopped' or task_status == 'canceled':
             error = 'Destination Sync cancelled.'
         else:
             error = ''
@@ -82,7 +83,7 @@ class SyncTask(object):
 
     @property
     def is_cancelled(self):
-        return self._job.get_status() == 'stopped'
+        return self._job.get_status() == 'canceled' or 'stopped'
 
     @property
     def status(self):

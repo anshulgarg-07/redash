@@ -76,7 +76,7 @@ function QueryView(props) {
 
   const doExecuteQuery = useCallback(
     (skipParametersDirtyFlag = false) => {
-      if (!queryFlags.canExecute || (!skipParametersDirtyFlag && (areParametersDirty || isExecuting))) {
+      if (!queryFlags.canExecute || (!skipParametersDirtyFlag && areParametersDirty)) {
         return;
       }
       executeQuery();

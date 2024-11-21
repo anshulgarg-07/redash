@@ -410,7 +410,7 @@ class QueryResult {
           loadResult();
         } else if (this.getStatus() !== "failed") {
           let waitTime;
-            if (this.wait_no === null) {
+            if (this.wait_no === null || this.wait_no === "NA") {
               if (tryNumber < 4) {
                 waitTime = 500;
               } else {

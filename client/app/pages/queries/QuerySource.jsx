@@ -171,7 +171,7 @@ function QuerySource(props) {
 
   const doExecuteQuery = useCallback(
     (skipParametersDirtyFlag = false) => {
-      if (!queryFlags.canExecute || (!skipParametersDirtyFlag && (areParametersDirty || isQueryExecuting))) {
+      if (!queryFlags.canExecute || (!skipParametersDirtyFlag && areParametersDirty)) {
         return;
       }
       if (isDirty || !isEmpty(selectedText)) {
