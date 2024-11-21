@@ -171,7 +171,7 @@ function QuerySource(props) {
 
   const doExecuteQuery = useCallback(
     (skipParametersDirtyFlag = false) => {
-      if (!queryFlags.canExecute || (!skipParametersDirtyFlag && (areParametersDirty || isQueryExecuting))) {
+      if (!queryFlags.canExecute || (!skipParametersDirtyFlag && areParametersDirty)) {
         return;
       }
       if (isDirty || !isEmpty(selectedText)) {
@@ -307,7 +307,7 @@ function QuerySource(props) {
                         }
                       }
                       executeButtonProps={{
-                        disabled: !queryFlags.canExecute || isQueryExecuting || areParametersDirty,
+                        disabled: !queryFlags.canExecute || areParametersDirty,
                         shortcut: "mod+enter, alt+enter, ctrl+enter, shift+enter",
                         onClick: doExecuteQuery,
                         text: (

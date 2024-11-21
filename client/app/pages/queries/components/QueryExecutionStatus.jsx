@@ -10,7 +10,7 @@ export default function QueryExecutionStatus({ status, updatedAt, error, isCance
   const showTimer = status !== "failed" && updatedAt;
   const isCancelButtonAvailable = includes(["waiting", "processing"], status);
   let message = isCancelling ? <React.Fragment>Cancelling&hellip;</React.Fragment> : null;
-  const waitNumber = queryResult && queryResult.wait_no != null ? queryResult.wait_no : 0;
+  const waitNumber = queryResult && queryResult.wait_no != null && queryResult.wait_no !== "NA" ? queryResult.wait_no : 0;
 
   switch (status) {
     case "waiting":
