@@ -307,7 +307,7 @@ function QuerySource(props) {
                         }
                       }
                       executeButtonProps={{
-                        disabled: !queryFlags.canExecute || isQueryExecuting || areParametersDirty,
+                        disabled: !queryFlags.canExecute || areParametersDirty,
                         shortcut: "mod+enter, alt+enter, ctrl+enter, shift+enter",
                         onClick: doExecuteQuery,
                         text: (

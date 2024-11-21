@@ -111,7 +111,7 @@ function QueryView(props) {
                   className="m-r-5"
                   type="primary"
                   shortcut="mod+enter, alt+enter, ctrl+enter"
-                  disabled={!queryFlags.canExecute || isExecuting || areParametersDirty}
+                  disabled={!queryFlags.canExecute || areParametersDirty}
                   onClick={doExecuteQuery}>
                   Refresh
                 </QueryViewButton>
