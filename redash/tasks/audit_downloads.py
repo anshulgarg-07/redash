@@ -107,6 +107,8 @@ def enqueue_download_audit(push_id, user, query, time, format, limit, query_resu
 
         except redis.WatchError:
             continue
+        finally:
+            pipe.reset()
 
     if not job:
         logger.error("[Manager][%s] Failed adding job for push_to_jumbo.", push_id)

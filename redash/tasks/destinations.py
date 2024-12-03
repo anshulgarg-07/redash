@@ -167,6 +167,8 @@ def enqueue_destination(destination_id, user_id, sync_type, metadata={}):
 
         except redis.WatchError:
             continue
+        finally:
+            pipe.reset()
 
     if not job:
         logger.error("[Manager][%s] Failed adding job for destination.", destination_id)

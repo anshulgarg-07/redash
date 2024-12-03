@@ -112,7 +112,7 @@ class Presto(BaseSQLQueryRunner):
         results, error = self.run_query(information_schema_query, None)
 
         if error is not None:
-            raise Exception("Failed getting schema.")
+            raise Exception(f"Failed getting schema. with error {error}")
 
         results = json_loads(results)
 
@@ -165,7 +165,8 @@ class Presto(BaseSQLQueryRunner):
             logger.info('Query result size {0}'.format(query_result_bytes))
             if query_result_bytes > settings.QUERY_RESULT_MAX_BYTES_LIMIT:
                 json_data = None
-                error = "Query result too large. Data size > {0} bytes".format(settings.QUERY_RESULT_MAX_BYTES_LIMIT)
+                error = "Query result too large. Data size {1} > {0} bytes".format(settings.QUERY_RESULT_MAX_BYTES_LIMIT, query_result_bytes)
+                return json_data, error
             else:
                 data = {'columns': columns, 'rows': rows}
                 json_data = json_dumps(data)
