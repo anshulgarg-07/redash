@@ -163,6 +163,8 @@ def remove_ghost_locks():
     Removes query locks that reference a non existing RQ job.
     """
     keys = redis_connection.keys("query_hash_job:*")
+    keys = keys + redis_connection.keys("push_to_jumbo:*")
+    keys = keys + redis_connection.keys("sync_job:*")
     locks = {k: redis_connection.get(k) for k in keys}
     jobs = list(rq_job_ids())
 

@@ -358,7 +358,7 @@ def serialize_job(job, wait_no = 0):
         JobStatus.STARTED: 2,
         JobStatus.FINISHED: 3,
         JobStatus.FAILED: 4,
-        JobStatus.CANCELED: 4,
+        JobStatus.CANCELED: 5,
         JobStatus.DEFERRED: 6,
         JobStatus.SCHEDULED: 7,
     }
