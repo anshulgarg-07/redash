@@ -69,7 +69,7 @@ class SyncTask(object):
         elif isinstance(result, Exception):
             error = result.message
             status = 4
-        elif task_status == 'stopped' or task_status == 'canceled':
+        elif task_status == 'stopped':
             error = 'Destination Sync cancelled.'
         else:
             error = ''
@@ -83,7 +83,7 @@ class SyncTask(object):
 
     @property
     def is_cancelled(self):
-        return self._job.get_status() == 'canceled' or 'stopped'
+        return self._job.get_status() == 'stopped'
 
     @property
     def status(self):

@@ -51,7 +51,7 @@ def get_wait_rank(job_id, queue_name):
             logger.info(f"Error fetching rank for queue: {queue_name} and job: {job_id} with error: {str(e)}")
             return "NA"
     else:
-        logger.info(f"Error fetching rank for queue: {queue_name} and job: {job_id} with error: Queue_name is none")
+        logger.info(f"Error fetching rank for queue: {queue_name} and job: {job_id} with error: Queue is none")
         return "NA"
 
 
