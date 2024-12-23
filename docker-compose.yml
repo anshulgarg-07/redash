@@ -29,6 +29,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - statsd-exporter
     ports:
       - "5001:5000"
       - "5678:5678"
