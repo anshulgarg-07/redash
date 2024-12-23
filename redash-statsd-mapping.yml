@@ -1,7 +1,7 @@
 mappings:
   # Match all metrics related to job statuses
-  - match: "rq.jobs.*.*"
-    name: "redash_rq_jobs"
+  - match: "rq_jobs.*.*"
+    name: "rq_jobs"
     labels:
       status: "$1"  # Captures the job status (e.g., running, started, finished, failed)
       queue: "$2"   # Captures the queue name
