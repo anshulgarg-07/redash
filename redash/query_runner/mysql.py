@@ -13,7 +13,7 @@ from redash.query_runner import (
     JobTimeoutException,
     register,
 )
-from redash.settings import parse_boolean
+from redash.settings import parse_boolean, ANNOTATE_MYSQL_QUERIES
 from redash.utils import json_dumps, json_loads
 
 try:
@@ -22,6 +22,8 @@ try:
     enabled = True
 except ImportError:
     enabled = False
+
+ANNOTATE_QUERY = ANNOTATE_MYSQL_QUERIES
 
 logger = logging.getLogger(__name__)
 types_map = {
@@ -150,6 +152,12 @@ class Mysql(BaseSQLQueryRunner):
             schema[table_name]["columns"].append(row["column_name"])
 
         return list(schema.values())
+
+    def annotate_query(self, query, metadata):
+        if ANNOTATE_QUERY:
+            query = super(Mysql, self).annotate_query(query, metadata)
+            query = super(Mysql, self).annotate_query(query, metadata)
+        return query
 
 
     def run_query(self, query, user):
