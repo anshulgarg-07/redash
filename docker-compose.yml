@@ -29,6 +29,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - statsd-exporter
     ports:
       - "5001:5000"
       - "5678:5678"
@@ -36,6 +37,7 @@ services:
     environment:
       <<: *redash-environment
       PYTHONUNBUFFERED: 0
+
   scheduler:
     <<: *redash-service
     command: scheduler
@@ -43,6 +45,7 @@ services:
       - server
     environment:
       <<: *redash-environment
+
   worker:
     <<: *redash-service
     command: worker
@@ -51,12 +54,14 @@ services:
     environment:
       <<: *redash-environment
       PYTHONUNBUFFERED: 0
-      WORKERS_COUNT: 2
+      WORKERS_COUNT: 1
+
   redis:
-    image: redis:3-alpine
+    image: redis:5
     restart: unless-stopped
+
   postgres:
-    image: postgres:9.5-alpine
+    image: postgres:15.5
     # The following turns the DB into less durable, but gains significant performance improvements for the tests run (x3
     # improvement on my personal machine). We should consider moving this into a dedicated Docker Compose configuration for
     # tests.
@@ -69,18 +74,19 @@ services:
       POSTGRES_USER: redash
       POSTGRES_PASSWORD: redash
       POSTGRES_DB: redash
-  email:
-    image: djfarrelly/maildev
+
+  statsd-exporter:
+    hostname: statsd-exporter
+    container_name: statsd-exporter
+    image: prom/statsd-exporter:v0.15.0
+    volumes:
+      - ./redash-statsd-mapping.yml:/etc/prometheus/statsd-mapping.yaml
+    command:
+      - --statsd.mapping-config=/etc/prometheus/statsd-mapping.yaml
     ports:
-      - "1080:80"
-    restart: unless-stopped
-  nginx:
-    image: redash/nginx:latest
-    ports:
-      - "8080:80"
-    depends_on:
-      - server
-    restart: always
+      - 9102:9102
+      - 9125:9125/udp
+
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: redis-commander
