@@ -2,6 +2,7 @@ import logging
 
 from redash.query_runner import *
 from redash.utils import json_dumps, json_loads
+from redash import settings
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ TRINO_TYPES_MAPPING = {
 
 class Trino(BaseQueryRunner):
     noop_query = "SELECT 1"
-    should_annotate_query = False
+    should_annotate_query = True
 
     @classmethod
     def configuration_schema(cls):
@@ -54,6 +55,32 @@ class Trino(BaseQueryRunner):
                 "password": {"type": "string"},
                 "catalog": {"type": "string"},
                 "schema": {"type": "string"},
+                "source": {
+                    "type": "string",
+                    "title": "Source to be passed to presto",
+                    "default": "pyhive"
+                },
+                "information_schema_query": {
+                    "type": "string",
+                    "title": "Custom information schema query"
+                },
+                "sql_max_rows_limit": {
+                    "type": "number",
+                    "default": 100000
+                },
+                "should_enforce_limit": {
+                    "type": "boolean",
+                    "default": False
+                },
+                'user_impersonation': {
+                    'type': 'boolean',
+                    'title': 'Allows passing logged-in users email address as username to presto, Instead of the default username being sent',
+                    'default': False
+                },
+                'sql_character_limit': {
+                    'type': 'number',
+                    'default': settings.QUERY_CHARACTER_LIMIT
+                }
             },
             "order": [
                 "protocol",
@@ -63,6 +90,12 @@ class Trino(BaseQueryRunner):
                 "password",
                 "catalog",
                 "schema",
+                "source"
+                "information_schema_query",
+                "sql_max_rows_limit",
+                "should_enforce_limit",
+                "user_impersonation",
+                "sql_character_limit"
             ],
             "required": ["host", "username"],
             "secret": ["password"]
@@ -77,15 +110,17 @@ class Trino(BaseQueryRunner):
         return "trino"
 
     def get_schema(self, get_stats=False):
-        query = """
-            SELECT table_schema, table_name, column_name
-            FROM information_schema.columns
-            WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
-        """
-        results, error = self.run_query(query, None)
+        default_information_schema_query = """
+                SELECT table_schema, table_name, column_name
+                FROM information_schema.columns
+                WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                """
+        information_schema_query = self.configuration.get('information_schema_query',
+                                                          default_information_schema_query)
+        results, error = self.run_query(information_schema_query, None)
 
         if error is not None:
-            raise Exception("Failed getting schema.")
+            raise Exception(f"Failed getting schema. with error {error}")
 
         results = json_loads(results)
         schema = {}
@@ -100,9 +135,21 @@ class Trino(BaseQueryRunner):
         return list(schema.values())
 
     def run_query(self, query, user):
+        should_impersonate_user = self.configuration.get('user_impersonation', False)
+        query_character_limit = self.configuration.get('sql_character_limit', settings.QUERY_CHARACTER_LIMIT)
+        if settings.FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT and len(query) >= query_character_limit:
+            json_data = None
+            error = "Query text length ({}) exceeds the maximum length ({})".format(len(query),
+                                                                                    query_character_limit)
+            return json_data, error
+
+        if not should_impersonate_user or user is None:
+            username = self.configuration.get('username', 'redash')
+        else:
+            username = user.email
         if self.configuration.get("password"):
             auth = trino.auth.BasicAuthentication(
-                username=self.configuration.get("username"),
+                username=username,
                 password=self.configuration.get("password")
             )
         else:
@@ -113,8 +160,9 @@ class Trino(BaseQueryRunner):
             port=self.configuration.get("port", 8080),
             catalog=self.configuration.get("catalog", "hive"),
             schema=self.configuration.get("schema", "default"),
-            user=self.configuration.get("username"),
-            auth=auth
+            user=username,
+            auth=auth,
+            source=self.configuration.get("source", "pyhive")
         )
 
         cursor = connection.cursor()
@@ -130,12 +178,17 @@ class Trino(BaseQueryRunner):
                 dict(zip([c["name"] for c in columns], r))
                 for r in results
             ]
-            data = {
-                "columns": columns,
-                "rows": rows
-            }
-            json_data = json_dumps(data)
-            error = None
+
+            query_result_bytes = self.get_total_size(rows)
+            logger.info('Query result size {0}'.format(query_result_bytes))
+            if query_result_bytes > settings.QUERY_RESULT_MAX_BYTES_LIMIT:
+                json_data = None
+                error = "Query result too large. Data size {1} > {0} bytes".format(settings.QUERY_RESULT_MAX_BYTES_LIMIT, query_result_bytes)
+                return json_data, error
+            else:
+                data = {'columns': columns, 'rows': rows}
+                json_data = json_dumps(data)
+                error = None
         except DatabaseError as db:
             json_data = None
             default_message = "Unspecified DatabaseError: {0}".format(str(db))
