@@ -58,3 +58,14 @@ redis-cli:
 
 bash:
 	docker-compose run --rm server bash
+
+tag := $(TAG)
+branch_name := $(BRANCH)
+
+push_dev:
+	docker buildx build --platform=linux/amd64,linux/arm64  --cache-from type=local,src=/data/docker_cache/redash-internal/${branch_name} \
+	--cache-to type=local,dest=/data/docker_cache/redash-internal/${branch_name},mode=max --push -t 125719378300.dkr.ecr.ap-southeast-1.amazonaws.com/zdp/redash:dev .
+
+push_prod:
+	docker buildx build --platform=linux/amd64,linux/arm64  --cache-from type=local,src=/data/docker_cache/redash-internal/${branch_name}\
+        --cache-to type=local,dest=/data/docker_cache/redash-internal/${branch_name},mode=max --push -t 125719378300.dkr.ecr.ap-southeast-1.amazonaws.com/zdp/redash:${tag} .

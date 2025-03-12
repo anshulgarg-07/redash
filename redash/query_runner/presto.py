@@ -186,18 +186,6 @@ class Presto(BaseSQLQueryRunner):
             raise
 
         return json_data, error
-    
-    def get_total_size(self, obj):
-        """Recursively finds the total size of an object, including nested objects."""
-        size = sys.getsizeof(obj)
-        if isinstance(obj, dict):
-            size += sum([self.get_total_size(v) for v in obj.values()])
-            size += sum([self.get_total_size(k) for k in obj.keys()])
-        elif hasattr(obj, '__dict__'):
-            size += self.get_total_size(obj.__dict__)
-        elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-            size += sum([self.get_total_size(i) for i in obj])
-        return size
 
 
 register(Presto)

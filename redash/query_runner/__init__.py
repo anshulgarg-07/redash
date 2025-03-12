@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from contextlib import ExitStack
 from dateutil import parser
@@ -200,6 +201,18 @@ class BaseQueryRunner(object):
     def gen_query_hash(self, query_text, set_auto_limit=False):
         query_text = self.apply_auto_limit(query_text, set_auto_limit)
         return utils.gen_query_hash(query_text)
+
+    def get_total_size(self, obj):
+        """Recursively finds the total size of an object, including nested objects."""
+        size = sys.getsizeof(obj)
+        if isinstance(obj, dict):
+            size += sum([self.get_total_size(v) for v in obj.values()])
+            size += sum([self.get_total_size(k) for k in obj.keys()])
+        elif hasattr(obj, '__dict__'):
+            size += self.get_total_size(obj.__dict__)
+        elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+            size += sum([self.get_total_size(i) for i in obj])
+        return size
 
 
 class BaseSQLQueryRunner(BaseQueryRunner):
