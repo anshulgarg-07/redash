@@ -57,7 +57,7 @@ class Trino(BaseQueryRunner):
                 "schema": {"type": "string"},
                 "source": {
                     "type": "string",
-                    "title": "Source to be passed to presto",
+                    "title": "Source to be passed to trino",
                     "default": "pyhive"
                 },
                 "information_schema_query": {
@@ -74,7 +74,7 @@ class Trino(BaseQueryRunner):
                 },
                 'user_impersonation': {
                     'type': 'boolean',
-                    'title': 'Allows passing logged-in users email address as username to presto, Instead of the default username being sent',
+                    'title': 'Allows passing logged-in users email address as username to trino, Instead of the default username being sent',
                     'default': False
                 },
                 'sql_character_limit': {
@@ -90,7 +90,7 @@ class Trino(BaseQueryRunner):
                 "password",
                 "catalog",
                 "schema",
-                "source"
+                "source",
                 "information_schema_query",
                 "sql_max_rows_limit",
                 "should_enforce_limit",
