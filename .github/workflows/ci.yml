@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: [self-hosted, 1v]
+    runs-on: [ self-hosted, 8v, od, acc-infraprod, arch-x64 ]
 
     steps:
     - name: Checkout code
