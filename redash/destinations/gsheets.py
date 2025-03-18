@@ -59,7 +59,7 @@ class Gsheets(BaseDestination):
     def icon(cls):
         return 'file-spreadsheet'
 
-    def sync_visualization(self, query_result, options, user_email, query_id, allowed_emails, query_result_id):
+    def sync_visualization(self, query_result, options, user_email, query_id, allowed_emails, query_result_id, user_permissions):
         signal.signal(signal.SIGINT, signal_handler)
         try:
             sh = get_gsheet(
@@ -67,7 +67,8 @@ class Gsheets(BaseDestination):
                 sheet_id=options.get("spreadsheet_id"),
                 sheet_name=options.get("sheet_name"),
                 allowed_emails=allowed_emails,
-                clear_cache=True
+                clear_cache=True,
+                user_permissions=user_permissions
             )
             data = [[column['friendly_name'] for column in query_result["columns"]]]
             for result in query_result["rows"]:

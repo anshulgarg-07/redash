@@ -1555,7 +1555,7 @@ class Destination(TimestampMixin, BelongsToOrgMixin, db.Model):
         google_apps_domains = Organization.query.filter(Organization.id == 1).first().settings.get("google_apps_domains", None)
         logging.info("Syncing destination ID: %s", self.id)
         error = self.destination.sync_visualization(query_result=query_result,
-                                                    options=self.options, user_email=user.email, query_id=query_id, allowed_emails=google_apps_domains, query_result_id=query_result_id)
+                                                    options=self.options, user_email=user.email, query_id=query_id, allowed_emails=google_apps_domains, query_result_id=query_result_id, user_permissions=user.permissions)
         sync_duration = time.time() - started_at
 
         DestinationSyncHistory.store_result(

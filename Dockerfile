@@ -64,6 +64,9 @@ RUN apt-get update && \
 # Install DuckDB Python package
 RUN pip install duckdb==0.10.3
 
+# Install dependency for pymssql Python package needed for MS SQL Server
+RUN pip install Cython==0.29.36
+
 # Install and load httpfs extension
 RUN python -c "import duckdb; conn = duckdb.connect(); conn.execute('INSTALL httpfs'); conn.execute('LOAD httpfs'); conn.close()"
 

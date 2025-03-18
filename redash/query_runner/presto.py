@@ -1,10 +1,21 @@
 import sys
 from collections import defaultdict
-from redash.query_runner import *
+from redash.query_runner import (
+    BaseSQLQueryRunner,
+    TYPE_INTEGER,
+    TYPE_FLOAT,
+    TYPE_BOOLEAN,
+    TYPE_STRING,
+    TYPE_DATE,
+    InterruptException, 
+    JobTimeoutException, 
+    register
+)
 from redash.utils import json_dumps, json_loads
 from redash import settings
 
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -127,11 +138,17 @@ class Presto(BaseSQLQueryRunner):
         return list(schema.values())
 
     def run_query(self, query, user):
-        should_impersonate_user = self.configuration.get('user_impersonation', False)
-        if not should_impersonate_user or user is None:
-            username = self.configuration.get('username', 'redash')
-        else:
+        session = None
+        password = self.configuration.get('password', None)
+        username = self.configuration.get('username', 'redash')
+
+        if self.configuration.get('user_impersonation', False) and user:
+            if password:
+                session = requests.Session()
+                session.auth = requests.auth.HTTPBasicAuth(username, password)
             username = user.email
+            password = None
+        
         query_character_limit = self.configuration.get('sql_character_limit', settings.QUERY_CHARACTER_LIMIT)
         if settings.FEATURE_ENFORCE_QUERY_CHARACTER_LIMIT and len(query) >= query_character_limit:
             json_data = None
@@ -143,10 +160,11 @@ class Presto(BaseSQLQueryRunner):
             port=self.configuration.get("port", 8080),
             protocol=self.configuration.get("protocol", "http"),
             username=username,
-            password=(self.configuration.get("password") or None),
+            password=password,
             catalog=self.configuration.get("catalog", "hive"),
             schema=self.configuration.get("schema", "default"),
             source=self.configuration.get("source", "pyhive"),
+            requests_session=session
         )
 
         cursor = connection.cursor()
