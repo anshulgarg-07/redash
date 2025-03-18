@@ -1,0 +1,17 @@
+name: Zomato Code Checks
+run-name: Linters
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+    branches:
+      - master # change the branch name here with the one where we want to run the linters for when PR is raised
+      - staging
+      - dev
+
+jobs:
+  linters:
+    uses: Zomato/linter-configs/.github/workflows/python-linter.yml@master
