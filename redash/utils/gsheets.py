@@ -198,7 +198,7 @@ def ClientFactory(option="service_account"):
     return options[option]
 
 
-def get_gsheet(user_email, sheet_id, sheet_name, allowed_emails, clear_cache=False):
+def get_gsheet(user_email, sheet_id, sheet_name, allowed_emails, clear_cache=False, user_permissions=[]):
     try:
         client = ClientFactory(option=settings.REDASH_GOOGLE_SHEET_CLIENT_MAPPING.get(extract_company(user_email)))(
             user_email=user_email,
@@ -209,7 +209,7 @@ def get_gsheet(user_email, sheet_id, sheet_name, allowed_emails, clear_cache=Fal
         )
         logging.info(f"the client in get_gsheet is {client}")
         gc = client.get()
-        if settings.REDASH_PROTECTED_DESTINATION_SYNC_ENABLED and isinstance(client, DelegatedGspreadClient):
+        if settings.REDASH_PROTECTED_DESTINATION_SYNC_ENABLED and isinstance(client, DelegatedGspreadClient) and "override_protected_destination_sync" not in user_permissions:
             service = client.drive_service()
             file = service.files().listLabels(
                 fileId=sheet_id,
