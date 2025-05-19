@@ -18,6 +18,7 @@ worker() {
 
   export WORKERS_COUNT=${WORKERS_COUNT:-2}
   export QUEUES=${QUEUES:-}
+  export TIMEOUT=${REDASH_WORKER_TIMEOUT:-120}
 
   exec supervisord -c worker.conf
 }

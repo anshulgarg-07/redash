@@ -9,7 +9,7 @@ from rq.worker import HerokuWorker # HerokuWorker implements graceful shutdown o
 from rq.utils import utcnow
 from rq.timeouts import HorseMonitorTimeoutException
 from rq.job import Job as BaseJob, JobStatus
-
+from redash import settings
 
 class CancellableJob(BaseJob):
     def cancel(self, pipeline=None):
@@ -75,6 +75,7 @@ class HardLimitingWorker(HerokuWorker):
     it should have timed out (+ a grace period of 15s). If it does, it kills the work horse.
     """
 
+    HerokuWorker.imminent_shutdown_delay = settings.REDASH_WORKER_TIMEOUT
     grace_period = 15
     queue_class = RedashQueue
     job_class = CancellableJob
